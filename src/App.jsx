@@ -3,6 +3,7 @@ import ControlsPanel from "./components/ControlsPanel";
 import GameHeader from "./components/GameHeader";
 import GameStage from "./components/GameStage";
 import InventoryPanel from "./components/InventoryPanel";
+import SettingsOverlay from "./components/SettingsOverlay";
 import {
   BLOCK_BY_ID,
   BLOCKS,
@@ -42,6 +43,7 @@ void ControlsPanel;
 void GameHeader;
 void GameStage;
 void InventoryPanel;
+void SettingsOverlay;
 
 const MAX_WATER_SPREAD = 7;
 const WATER_FLOW_STEP = 0.16;
@@ -1893,110 +1895,11 @@ export default function MinecraftInspiredWebGame() {
           onToggleFullscreen={toggleFullscreen}
         >
           {isSettingsOpen && (
-            <aside
-              className="game-settings-overlay"
-              onMouseDown={(event) => event.stopPropagation()}
-              onMouseMove={(event) => event.stopPropagation()}
-              onContextMenu={(event) => event.preventDefault()}
-            >
-              <div className="settings-heading">
-                <span>World Options</span>
-                <button
-                  type="button"
-                  className="settings-close"
-                  onClick={() => setIsSettingsOpen(false)}
-                  aria-label="Close settings"
-                >
-                  x
-                </button>
-              </div>
-
-              <label className="settings-row">
-                <span>Movement speed</span>
-                <strong>{gameSettings.movementSpeed.toFixed(1)}x</strong>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.1"
-                  value={gameSettings.movementSpeed}
-                  onChange={(event) =>
-                    updateGameSetting(
-                      "movementSpeed",
-                      Number(event.target.value),
-                    )
-                  }
-                />
-              </label>
-
-              <label className="settings-row">
-                <span>Day cycle</span>
-                <strong>{gameSettings.dayCycleSpeed.toFixed(1)}x</strong>
-                <input
-                  type="range"
-                  min="0"
-                  max="4"
-                  step="0.1"
-                  value={gameSettings.dayCycleSpeed}
-                  disabled={gameSettings.skyMode !== "cycle"}
-                  onChange={(event) =>
-                    updateGameSetting(
-                      "dayCycleSpeed",
-                      Number(event.target.value),
-                    )
-                  }
-                />
-              </label>
-
-              <div className="settings-toggle-row">
-                <span>Rain</span>
-                <button
-                  type="button"
-                  className={gameSettings.rainEnabled ? "is-active" : ""}
-                  onClick={() =>
-                    updateGameSetting("rainEnabled", !gameSettings.rainEnabled)
-                  }
-                >
-                  {gameSettings.rainEnabled ? "On" : "Off"}
-                </button>
-              </div>
-
-              <label className="settings-row">
-                <span>Rain intensity</span>
-                <strong>{Math.round(gameSettings.rainIntensity * 100)}%</strong>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="1"
-                  step="0.05"
-                  value={gameSettings.rainIntensity}
-                  disabled={!gameSettings.rainEnabled}
-                  onChange={(event) =>
-                    updateGameSetting(
-                      "rainIntensity",
-                      Number(event.target.value),
-                    )
-                  }
-                />
-              </label>
-
-              <div className="settings-segmented" aria-label="Sky mode">
-                {[
-                  ["cycle", "Cycle"],
-                  ["day", "Day"],
-                  ["night", "Night"],
-                ].map(([value, label]) => (
-                  <button
-                    type="button"
-                    key={value}
-                    className={gameSettings.skyMode === value ? "is-active" : ""}
-                    onClick={() => updateGameSetting("skyMode", value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </aside>
+            <SettingsOverlay
+              gameSettings={gameSettings}
+              onClose={() => setIsSettingsOpen(false)}
+              onUpdateSetting={updateGameSetting}
+            />
           )}
         </GameStage>
         <section className="game-panels">
