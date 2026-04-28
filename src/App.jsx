@@ -398,9 +398,21 @@ export default function MinecraftInspiredWebGame() {
       });
     };
 
-    const waterHasSupport = (world, walls, x, y) =>
-      (y < WORLD_H - 1 && BLOCK_BY_ID[world[y + 1][x]]?.solid) ||
-      walls[y][x] !== WALLS.empty.id;
+    const waterHasSupport = (world, walls, x, y) => {
+      if (walls[y][x] !== WALLS.empty.id) return true;
+
+      const neighbors = [
+        [x, y - 1],
+        [x, y + 1],
+        [x - 1, y],
+        [x + 1, y],
+      ];
+
+      return neighbors.some(([nx, ny]) => {
+        if (nx < 0 || ny < 0 || nx >= WORLD_W || ny >= WORLD_H) return false;
+        return Boolean(BLOCK_BY_ID[world[ny][nx]]?.solid);
+      });
+    };
 
     const torchHasSupport = (
       world,
@@ -916,7 +928,7 @@ export default function MinecraftInspiredWebGame() {
               placeBlock.id === BLOCKS.torch.id
                 ? "Torches need a block below or a background wall."
                 : placeBlock.id === BLOCKS.water.id
-                  ? "Water needs a block below it or a background wall."
+                  ? "Water needs a solid block on any side or a background wall."
                 : "Blocks need support.",
           }));
           mineCooldown = 0.08;
