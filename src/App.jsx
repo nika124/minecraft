@@ -470,6 +470,22 @@ export default function MinecraftInspiredWebGame() {
       return false;
     };
 
+    const rectOverlapsWater = (world, x, y, w, h) => {
+      const left = Math.floor(x / TILE);
+      const right = Math.floor((x + w - 1) / TILE);
+      const top = Math.floor(y / TILE);
+      const bottom = Math.floor((y + h - 1) / TILE);
+
+      for (let ty = top; ty <= bottom; ty++) {
+        for (let tx = left; tx <= right; tx++) {
+          if (tx < 0 || ty < 0 || tx >= WORLD_W || ty >= WORLD_H) continue;
+          if (world[ty][tx] === BLOCKS.water.id) return true;
+        }
+      }
+
+      return false;
+    };
+
     const updateWaterFlow = () => {
       const world = worldRef.current;
       const levels = waterLevelsRef.current;
@@ -974,21 +990,49 @@ export default function MinecraftInspiredWebGame() {
         player.w - 8,
         player.h - 8,
       );
+      const inWater = rectOverlapsWater(
+        world,
+        player.x + 4,
+        player.y + 6,
+        player.w - 8,
+        player.h - 12,
+      );
+      const waterTouchingFeet = rectOverlapsWater(
+        world,
+        player.x + 4,
+        player.y + player.h - 14,
+        player.w - 8,
+        14,
+      );
+      const waterTouchingHead = rectOverlapsWater(
+        world,
+        player.x + 6,
+        player.y + 2,
+        player.w - 12,
+        18,
+      );
+      const moveMaxSpeed = inWater ? (sprint ? 4.1 : 3.2) : maxRunSpeed;
 
       if (moveDir !== 0) {
-        const acceleration = player.onGround
+        const acceleration = inWater
           ? sprint
-            ? 1.78
-            : 1.3
-          : sprint
-            ? 0.69
-            : 0.52;
+            ? 0.42
+            : 0.31
+          : player.onGround
+            ? sprint
+              ? 1.78
+              : 1.3
+            : sprint
+              ? 0.69
+              : 0.52;
         const turningBoost =
-          player.onGround && Math.sign(player.vx) === -moveDir ? 1.45 : 1;
+          !inWater && player.onGround && Math.sign(player.vx) === -moveDir
+            ? 1.45
+            : 1;
         player.vx += moveDir * acceleration * turningBoost;
         player.facing = moveDir;
       } else {
-        player.vx *= player.onGround ? 0.72 : 0.985;
+        player.vx *= inWater ? 0.84 : player.onGround ? 0.72 : 0.985;
       }
 
       if (
@@ -1010,13 +1054,13 @@ export default function MinecraftInspiredWebGame() {
         ? 0.09
         : Math.max(0, (player.coyoteTime ?? 0) - dt);
 
-      if (jump && player.coyoteTime > 0 && !onLadder) {
+      if (jump && player.coyoteTime > 0 && !onLadder && !inWater) {
         player.vy = -13.6;
         player.onGround = false;
         player.coyoteTime = 0;
       }
 
-      player.vx = clamp(player.vx, -maxRunSpeed, maxRunSpeed);
+      player.vx = clamp(player.vx, -moveMaxSpeed, moveMaxSpeed);
       if (onLadder) {
         if (jump) {
           player.vy = -4.2;
@@ -1024,6 +1068,18 @@ export default function MinecraftInspiredWebGame() {
           player.vy = 4.2;
         } else {
           player.vy = 0;
+        }
+      } else if (inWater) {
+        const gravity = waterTouchingHead ? 0.18 : 0.26;
+        player.vy = clamp(player.vy + gravity, -5.2, 6);
+        player.vy *= waterTouchingHead ? 0.9 : 0.94;
+
+        if (jump) {
+          player.vy = waterTouchingHead ? -3.8 : -2.9;
+        } else if (down) {
+          player.vy = Math.min(player.vy + 0.52, 4.5);
+        } else if (waterTouchingFeet) {
+          player.vy = Math.min(player.vy, 1.2);
         }
       } else {
         player.vy = clamp(player.vy + 0.72, -18, 18);
