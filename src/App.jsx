@@ -496,7 +496,8 @@ export default function MinecraftInspiredWebGame() {
       const keyOf = (x, y) => `${x},${y}`;
       const isSolid = (x, y) =>
         !isInside(x, y) || Boolean(BLOCK_BY_ID[world[y][x]]?.solid);
-      const isWater = (x, y) => isInside(x, y) && world[y][x] === BLOCKS.water.id;
+      const isWater = (x, y) =>
+        isInside(x, y) && world[y][x] === BLOCKS.water.id;
       const isSource = (x, y) => sources.has(keyOf(x, y));
       const isOpenForWater = (x, y) =>
         isInside(x, y) &&
@@ -575,7 +576,12 @@ export default function MinecraftInspiredWebGame() {
       for (let y = WORLD_H - 1; y >= 0; y--) {
         for (let x = 0; x < WORLD_W; x++) {
           if (isWater(x, y)) {
-            waterCells.push({ x, y, level: levels[y][x], source: isSource(x, y) });
+            waterCells.push({
+              x,
+              y,
+              level: levels[y][x],
+              source: isSource(x, y),
+            });
           }
         }
       }
@@ -902,7 +908,9 @@ export default function MinecraftInspiredWebGame() {
           !waterSourcesRef.current.has(blockKey);
 
         if (
-          (currentBlock.id === BLOCKS.air.id || replacingWater || promotingWater) &&
+          (currentBlock.id === BLOCKS.air.id ||
+            replacingWater ||
+            promotingWater) &&
           !touchingPlayer &&
           hasSupport
         ) {
@@ -945,7 +953,7 @@ export default function MinecraftInspiredWebGame() {
                 ? "Torches need a block below or a background wall."
                 : placeBlock.id === BLOCKS.water.id
                   ? "Water needs a solid block on any side or a background wall."
-                : "Blocks need support.",
+                  : "Blocks need support.",
           }));
           mineCooldown = 0.08;
         }
@@ -1266,7 +1274,7 @@ export default function MinecraftInspiredWebGame() {
 
       const alpha = clamp(Math.min(remaining / 0.28, 1), 0, 1);
       const y = VIEW_H - 88 - (1 - alpha) * 7;
-      const text = `Selected ${hint.text}`;
+      const text = `${hint.text}`;
 
       uiCtx.save();
       uiCtx.globalAlpha = alpha;
