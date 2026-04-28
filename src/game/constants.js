@@ -1,5 +1,5 @@
 export const TILE = 32;
-export const WORLD_W = 170;
+export const WORLD_W = 2048;
 export const WORLD_H = 70;
 export const VIEW_W = 960;
 export const VIEW_H = 560;

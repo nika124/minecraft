@@ -167,7 +167,8 @@ export function drawPlayer(
   const speedAbs = Math.abs(vx);
   const moving = speedAbs > 0.25;
   const runBoost = running ? 1.35 : 1;
-  const cycle = time * (moving ? 8.2 * runBoost + speedAbs * 0.25 : 3);
+  const walkCadence = onGround ? 6.2 : 3;
+  const cycle = time * (moving ? walkCadence * runBoost : 3);
   const stride = moving ? Math.sin(cycle) : 0;
   const counterStride = moving ? Math.sin(cycle + Math.PI) : 0;
   const heelPlant = moving && onGround ? Math.cos(cycle) * 0.8 : 0;
@@ -187,10 +188,20 @@ export function drawPlayer(
     ctx.scale(-1, 1);
   }
 
-  ctx.fillStyle = "rgba(0,0,0,.25)";
-  ctx.beginPath();
-  ctx.ellipse(18, 62, running ? 16 : 13, moving ? 4.5 : 4, 0, 0, Math.PI * 2);
-  ctx.fill();
+  if (onGround) {
+    ctx.fillStyle = "rgba(0,0,0,.25)";
+    ctx.beginPath();
+    ctx.ellipse(
+      18,
+      62,
+      running ? 16 : 13,
+      moving ? 4.5 : 4,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
   ctx.translate(heelPlant * 0.45, bob);
   drawPixelLimb(ctx, 2, 26, 7, 24, "#c98d58", armAngleA, 3.5, 3);
   drawPixelLeg(

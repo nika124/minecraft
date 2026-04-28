@@ -11,26 +11,32 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function hashNoise(x) {
-  const value = Math.sin(x * 127.1) * 43758.5453;
+function hashNoise(x, seed = 1) {
+  const value = Math.sin((x + seed) * 127.1) * 43758.5453;
   return value - Math.floor(value);
 }
 
-function smoothNoise(x) {
+function smoothNoise(x, seed = 1) {
   const i = Math.floor(x);
   const f = x - i;
   const u = f * f * (3 - 2 * f);
-  return hashNoise(i) * (1 - u) + hashNoise(i + 1) * u;
+
+  return (
+    hashNoise(i, seed) * (1 - u) +
+    hashNoise(i + 1, seed) * u
+  );
 }
 
-function terrainHeight(x) {
-  const n1 = smoothNoise(x * 0.045) * 11;
-  const n2 = smoothNoise(x * 0.11) * 5;
-  const n3 = smoothNoise(x * 0.018) * 17;
+function terrainHeight(x, seed = 1) {
+  const n1 = smoothNoise(x * 0.045, seed) * 11;
+  const n2 = smoothNoise(x * 0.11, seed + 100) * 5;
+  const n3 = smoothNoise(x * 0.018, seed + 500) * 17;
+
   return clamp(Math.floor(29 + n1 + n2 + n3), 12, WORLD_H - 8);
 }
 
-export function makeWorld() {
+
+export function makeWorld(seed = Math.random() * 999999) {
   const world = Array.from({ length: WORLD_H }, () =>
     Array(WORLD_W).fill(BLOCKS.air.id),
   );
@@ -39,7 +45,7 @@ export function makeWorld() {
   );
 
   for (let x = 0; x < WORLD_W; x++) {
-    const height = terrainHeight(x);
+    const height = terrainHeight(x, seed);
     const beach = x > 18 && x < 34;
 
     for (let y = height; y < WORLD_H; y++) {
@@ -58,10 +64,10 @@ export function makeWorld() {
     }
   }
 
-  for (let x = 8; x < WORLD_W - 8; x += 9 + Math.floor(hashNoise(x) * 11)) {
-    if (hashNoise(x * 3.7) < 0.58) continue;
+for (let x = 8; x < WORLD_W - 8; x += 9 + Math.floor(hashNoise(x, seed) * 11)) {
+  if (hashNoise(x * 3.7, seed) < 0.58) continue;
 
-    const ground = terrainHeight(x);
+  const ground = terrainHeight(x, seed);
     if (ground <= 8 || ground >= WORLD_H || world[ground][x] === BLOCKS.sand.id)
       continue;
 
@@ -121,7 +127,7 @@ export function makeWorld() {
     }
   }
 
-  const baseX = 46;
+  const baseX = Math.floor(WORLD_W * 0.25);
   const baseY = terrainHeight(baseX) - 1;
 
   if (baseY > 8 && baseY < WORLD_H - 1) {
@@ -209,14 +215,16 @@ export function rectHitsSolid(world, x, y, w, h) {
 
 export function updateParticles(particles, dt) {
   const next = [];
+  const frameScale = dt * 60;
+  const damping = 0.96 ** frameScale;
 
   for (const particle of particles) {
     const updated = {
       ...particle,
-      x: particle.x + particle.vx,
-      y: particle.y + particle.vy,
-      vx: particle.vx * 0.96,
-      vy: particle.vy + 0.18,
+      x: particle.x + particle.vx * frameScale,
+      y: particle.y + particle.vy * frameScale,
+      vx: particle.vx * damping,
+      vy: particle.vy + 0.18 * frameScale,
       life: particle.life - dt,
     };
 

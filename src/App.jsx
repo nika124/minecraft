@@ -190,7 +190,7 @@ export default function MinecraftInspiredWebGame() {
   };
 
   const resetWorld = () => {
-    const next = makeWorld();
+    const next = makeWorld(Date.now());
     worldDataRef.current = next;
     worldRef.current = next.world;
     wallsRef.current = next.walls;
@@ -1005,6 +1005,9 @@ export default function MinecraftInspiredWebGame() {
 
       if (pausedRef.current) return;
 
+      const frameScale = dt * 60;
+      const applyFrameDamping = (value) => value ** frameScale;
+
       const keys = keysRef.current;
       const player = playerRef.current;
       const world = worldRef.current;
@@ -1101,10 +1104,12 @@ export default function MinecraftInspiredWebGame() {
           !inWater && player.onGround && Math.sign(player.vx) === -moveDir
             ? 1.45
             : 1;
-        player.vx += moveDir * acceleration * turningBoost;
+        player.vx += moveDir * acceleration * turningBoost * frameScale;
         player.facing = moveDir;
       } else {
-        player.vx *= inWater ? 0.84 : player.onGround ? 0.72 : 0.985;
+        player.vx *= applyFrameDamping(
+          inWater ? 0.84 : player.onGround ? 0.72 : 0.985,
+        );
       }
 
       if (
@@ -1143,18 +1148,18 @@ export default function MinecraftInspiredWebGame() {
         }
       } else if (inWater) {
         const gravity = waterTouchingHead ? 0.18 : 0.26;
-        player.vy = clamp(player.vy + gravity, -5.2, 6);
-        player.vy *= waterTouchingHead ? 0.9 : 0.94;
+        player.vy = clamp(player.vy + gravity * frameScale, -5.2, 6);
+        player.vy *= applyFrameDamping(waterTouchingHead ? 0.9 : 0.94);
 
         if (jump) {
           player.vy = waterTouchingHead ? -3.8 : -2.9;
         } else if (down) {
-          player.vy = Math.min(player.vy + 0.52, 4.5);
+          player.vy = Math.min(player.vy + 0.52 * frameScale, 4.5);
         } else if (waterTouchingFeet) {
           player.vy = Math.min(player.vy, 1.2);
         }
       } else {
-        player.vy = clamp(player.vy + 0.72, -18, 18);
+        player.vy = clamp(player.vy + 0.72 * frameScale, -18, 18);
       }
 
       if (Math.abs(player.vx) < 0.01) player.vx = 0;
@@ -1162,7 +1167,7 @@ export default function MinecraftInspiredWebGame() {
 
       if (player.vx !== 0) {
         const step = Math.sign(player.vx);
-        const nextX = player.x + player.vx;
+        const nextX = player.x + player.vx * frameScale;
 
         if (!rectHitsSolid(world, nextX, player.y, player.w, player.h)) {
           player.x = nextX;
@@ -1180,7 +1185,7 @@ export default function MinecraftInspiredWebGame() {
 
       if (player.vy !== 0) {
         const step = Math.sign(player.vy);
-        const nextY = player.y + player.vy;
+        const nextY = player.y + player.vy * frameScale;
 
         if (!rectHitsSolid(world, player.x, nextY, player.w, player.h)) {
           player.y = nextY;
@@ -1215,9 +1220,10 @@ export default function MinecraftInspiredWebGame() {
           VIEW_W / 2 +
           activePlayer.vx * 15 -
           cam.x) *
-        0.09;
+        (1 - applyFrameDamping(0.91));
       cam.y +=
-        (activePlayer.y + activePlayer.h / 2 - VIEW_H / 2 - 30 - cam.y) * 0.09;
+        (activePlayer.y + activePlayer.h / 2 - VIEW_H / 2 - 30 - cam.y) *
+        (1 - applyFrameDamping(0.91));
       cam.x = clamp(cam.x, 0, WORLD_W * TILE - VIEW_W);
       cam.y = clamp(cam.y, 0, WORLD_H * TILE - VIEW_H);
 
