@@ -175,8 +175,8 @@ export default function MinecraftInspiredWebGame() {
     const wall = WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall;
     let count = 0;
 
-    for (let y = centerY - 4; y <= centerY + 2; y++) {
-      for (let x = centerX - 5; x <= centerX + 5; x++) {
+    for (let y = centerY - 14; y <= centerY + 12; y++) {
+      for (let x = centerX - 15; x <= centerX + 15; x++) {
         if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) continue;
         if (wallsRef.current[y][x] !== wall.id) {
           wallsRef.current[y][x] = wall.id;
@@ -1067,6 +1067,10 @@ export default function MinecraftInspiredWebGame() {
       const walls = wallsRef.current;
       const ladders = laddersRef.current;
       const skyCoverage = skyCoverageRef.current;
+      const heldItem =
+        buildModeRef.current === "background"
+          ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
+          : (PLACEABLE[selectedRef.current] ?? BLOCKS.dirt);
       const dayCycleSpeed = 0.018;
       const day = (Math.sin(time * dayCycleSpeed) + 1) / 2;
 
@@ -1171,43 +1175,84 @@ export default function MinecraftInspiredWebGame() {
         const x = cloud.x - cam.x * 0.25;
         const y = cloud.y;
         const s = cloud.scale;
-        const drift = Math.sin(time * 0.22 + x * 0.003) * 4;
-        const cloudFill = `rgba(${Math.floor(220 + day * 30)}, ${Math.floor(226 + day * 24)}, ${Math.floor(235 + day * 20)}, ${0.16 + day * 0.38})`;
 
-        ctx.fillStyle = cloudFill;
+        const drift = Math.sin(time * 0.18 + cloud.x * 0.004) * 3;
+        const cx = x;
+        const cy = y + drift;
+
+        const alpha = 0.22 + day * 0.42;
+
+        ctx.save();
+
+        const g = ctx.createLinearGradient(cx, cy - 28 * s, cx, cy + 30 * s);
+        g.addColorStop(0, `rgba(245, 250, 255, ${alpha})`);
+        g.addColorStop(0.55, `rgba(218, 228, 242, ${alpha})`);
+        g.addColorStop(1, `rgba(155, 172, 195, ${alpha * 0.9})`);
+
+        ctx.fillStyle = g;
+
         ctx.beginPath();
-        ctx.ellipse(x + 14 * s, y + drift, 28 * s, 15 * s, 0, 0, Math.PI * 2);
-        ctx.ellipse(
-          x + 38 * s,
-          y - 7 * s + drift,
-          24 * s,
-          18 * s,
-          0,
-          0,
-          Math.PI * 2,
+        ctx.moveTo(cx + 8 * s, cy + 18 * s);
+
+        ctx.bezierCurveTo(
+          cx + 4 * s,
+          cy + 4 * s,
+          cx + 18 * s,
+          cy - 3 * s,
+          cx + 35 * s,
+          cy + 1 * s,
         );
-        ctx.ellipse(
-          x + 64 * s,
-          y - 2 * s + drift,
-          30 * s,
-          17 * s,
-          0,
-          0,
-          Math.PI * 2,
+        ctx.bezierCurveTo(
+          cx + 44 * s,
+          cy - 18 * s,
+          cx + 73 * s,
+          cy - 24 * s,
+          cx + 95 * s,
+          cy - 11 * s,
         );
-        ctx.ellipse(
-          x + 88 * s,
-          y + 5 * s + drift,
-          22 * s,
-          13 * s,
-          0,
-          0,
-          Math.PI * 2,
+        ctx.bezierCurveTo(
+          cx + 113 * s,
+          cy - 21 * s,
+          cx + 139 * s,
+          cy - 11 * s,
+          cx + 145 * s,
+          cy + 5 * s,
         );
+        ctx.bezierCurveTo(
+          cx + 166 * s,
+          cy + 4 * s,
+          cx + 179 * s,
+          cy + 15 * s,
+          cx + 174 * s,
+          cy + 27 * s,
+        );
+        ctx.bezierCurveTo(
+          cx + 135 * s,
+          cy + 33 * s,
+          cx + 58 * s,
+          cy + 34 * s,
+          cx + 20 * s,
+          cy + 27 * s,
+        );
+        ctx.bezierCurveTo(
+          cx + 10 * s,
+          cy + 26 * s,
+          cx + 5 * s,
+          cy + 22 * s,
+          cx + 8 * s,
+          cy + 18 * s,
+        );
+
+        ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = `rgba(255,255,255,${0.06 + day * 0.18})`;
-        ctx.fillRect(x + 18 * s, y - 8 * s + drift, 48 * s, 4 * s);
+        // very subtle bottom depth, not separate layer
+        ctx.fillStyle = `rgba(80, 95, 120, ${0.035 + day * 0.045})`;
+        ctx.beginPath();
+        ctx.ellipse(cx + 92 * s, cy + 19 * s, 70 * s, 7 * s, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
       }
 
       ctx.fillStyle = `rgba(${Math.floor(16 + day * 26)},${Math.floor(42 + day * 42)},${Math.floor(72 + day * 46)},${0.2 + night * 0.08})`;
@@ -1312,6 +1357,8 @@ export default function MinecraftInspiredWebGame() {
         player.onGround,
         player.facing,
         Boolean(keysRef.current.shift && Math.abs(player.vx) > 2.2),
+        heldItem,
+        buildModeRef.current === "background" ? "wall" : "block",
       );
       drawParticles(ctx, particlesRef.current, cam);
 

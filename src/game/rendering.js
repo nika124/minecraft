@@ -106,7 +106,34 @@ function drawPixelLeg(
   ctx.restore();
 }
 
-export function drawPlayer(ctx, px, py, time, vx, onGround, facing, running) {
+function drawHeldItem(ctx, item, itemType, armAngle) {
+  if (!item) return;
+
+  const texture =
+    itemType === "wall" ? getWallTexture(item) : getBlockTexture(item);
+  const size = item?.id === BLOCKS.torch.id ? 12 : 14;
+  const baseRotation = item?.id === BLOCKS.torch.id ? -0.2 : -0.08;
+
+  ctx.save();
+  ctx.translate(30.5, 47);
+  ctx.rotate(armAngle + baseRotation);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(texture, -2, -size + 2, size, size);
+  ctx.restore();
+}
+
+export function drawPlayer(
+  ctx,
+  px,
+  py,
+  time,
+  vx,
+  onGround,
+  facing,
+  running,
+  heldItem,
+  heldItemType,
+) {
   const speedAbs = Math.abs(vx);
   const moving = speedAbs > 0.25;
   const runBoost = running ? 1.35 : 1;
@@ -173,6 +200,7 @@ export function drawPlayer(ctx, px, py, time, vx, onGround, facing, running) {
   ctx.restore();
 
   drawPixelLimb(ctx, 27, 26, 7, 24, "#d59a63", armAngleB, 3.5, 3);
+  drawHeldItem(ctx, heldItem, heldItemType, armAngleB);
 
   ctx.fillStyle = "#c98d58";
   ctx.fillRect(14, 23, 8, 4);
