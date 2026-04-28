@@ -245,6 +245,12 @@ button {
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2);
 }
 
+.texture-swatch {
+  image-rendering: pixelated;
+  background-size: 100% 100%;
+  background-color: rgba(2, 6, 23, 0.5);
+}
+
 .palette-copy span,
 .control-tile b {
   display: block;

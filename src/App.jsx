@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ControlsPanel from "./components/ControlsPanel";
 import GameHeader from "./components/GameHeader";
 import GameStage from "./components/GameStage";
@@ -36,6 +36,7 @@ import {
   rectHitsSolid,
   updateParticles,
 } from "./game/world";
+import { getBlockTexture, getWallTexture } from "./game/textures";
 
 void ControlsPanel;
 void GameHeader;
@@ -66,6 +67,7 @@ export default function MinecraftInspiredWebGame() {
   const cameraRef = useRef({ x: 0, y: 0 });
   const selectedRef = useRef(1);
   const selectedWallRef = useRef(0);
+  const selectionHintRef = useRef({ text: "", color: "#86efac", until: 0 });
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
   const helpOpenRef = useRef(false);
@@ -102,6 +104,36 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     helpOpenRef.current = isHelpOpen;
   }, [isHelpOpen]);
+
+  const showSelectionHint = useCallback((item, mode = buildModeRef.current) => {
+    if (!item) return;
+
+    selectionHintRef.current = {
+      text: item.name,
+      color: mode === "background" ? "#67e8f9" : "#86efac",
+      until: performance.now() / 1000 + 1.35,
+    };
+  }, []);
+
+  const selectBlock = useCallback(
+    (index) => {
+      const item = PLACEABLE[index];
+      if (!item) return;
+      setSelected(index);
+      showSelectionHint(item, "foreground");
+    },
+    [showSelectionHint],
+  );
+
+  const selectWall = useCallback(
+    (index) => {
+      const item = WALL_PLACEABLE[index];
+      if (!item) return;
+      setSelectedWall(index);
+      showSelectionHint(item, "background");
+    },
+    [showSelectionHint],
+  );
 
   const toggleBuildMode = () => {
     setBuildMode((current) => {
@@ -208,9 +240,9 @@ export default function MinecraftInspiredWebGame() {
       if (/^[0-9]$/.test(key)) {
         const index = key === "0" ? 9 : Number(key) - 1;
         if (buildModeRef.current === "background") {
-          if (index < WALL_PLACEABLE.length) setSelectedWall(index);
+          if (index < WALL_PLACEABLE.length) selectWall(index);
         } else if (index < PLACEABLE.length) {
-          setSelected(index);
+          selectBlock(index);
         }
       }
 
@@ -245,7 +277,7 @@ export default function MinecraftInspiredWebGame() {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("contextmenu", preventContext);
     };
-  }, []);
+  }, [selectBlock, selectWall]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -348,7 +380,9 @@ export default function MinecraftInspiredWebGame() {
 
       return neighbors.some(([nx, ny]) => {
         if (nx < 0 || ny < 0 || nx >= WORLD_W || ny >= WORLD_H) return false;
-        return world[ny][nx] !== BLOCKS.air.id || walls[ny][nx] !== WALLS.empty.id;
+        return (
+          world[ny][nx] !== BLOCKS.air.id || walls[ny][nx] !== WALLS.empty.id
+        );
       });
     };
 
@@ -548,18 +582,18 @@ export default function MinecraftInspiredWebGame() {
             mineCooldown = 0.08;
             return;
           }
-            emitParticles(
-              particlesRef.current,
-              worldX * TILE + TILE / 2,
-              worldY * TILE + TILE / 2,
-              wall.color,
-              5,
-            );
-            setStats((current) => ({
-              ...current,
-              wallsBuilt: current.wallsBuilt + 1,
-              message: `Placed ${wall.name}. Background walls do not block movement.`,
-            }));
+          emitParticles(
+            particlesRef.current,
+            worldX * TILE + TILE / 2,
+            worldY * TILE + TILE / 2,
+            wall.color,
+            5,
+          );
+          setStats((current) => ({
+            ...current,
+            wallsBuilt: current.wallsBuilt + 1,
+            message: `Placed ${wall.name}. Background walls do not block movement.`,
+          }));
           mineCooldown = 0.08;
         }
 
@@ -693,10 +727,11 @@ export default function MinecraftInspiredWebGame() {
 
       const left = Boolean(keys.a || keys.arrowleft);
       const right = Boolean(keys.d || keys.arrowright);
+      const moveDir = Number(right) - Number(left);
       const jump = Boolean(keys.w || keys.arrowup || keys[" "]);
       const down = Boolean(keys.s || keys.arrowdown);
       const sprint = Boolean(keys.shift);
-      const speed = sprint ? 1.08 : 0.66;
+      const maxRunSpeed = sprint ? 9.8 : 6.7;
       const onLadder = rectOverlapsLadder(
         ladders,
         player.x + 4,
@@ -705,14 +740,20 @@ export default function MinecraftInspiredWebGame() {
         player.h - 8,
       );
 
-      if (left) {
-        player.vx -= speed;
-        player.facing = -1;
-      }
-
-      if (right) {
-        player.vx += speed;
-        player.facing = 1;
+      if (moveDir !== 0) {
+        const acceleration = player.onGround
+          ? sprint
+            ? 1.78
+            : 1.3
+          : sprint
+            ? 0.69
+            : 0.52;
+        const turningBoost =
+          player.onGround && Math.sign(player.vx) === -moveDir ? 1.45 : 1;
+        player.vx += moveDir * acceleration * turningBoost;
+        player.facing = moveDir;
+      } else {
+        player.vx *= player.onGround ? 0.72 : 0.985;
       }
 
       if (
@@ -730,13 +771,17 @@ export default function MinecraftInspiredWebGame() {
         );
       }
 
-      if (jump && player.onGround && !onLadder) {
+      player.coyoteTime = player.onGround
+        ? 0.09
+        : Math.max(0, (player.coyoteTime ?? 0) - dt);
+
+      if (jump && player.coyoteTime > 0 && !onLadder) {
         player.vy = -13.6;
         player.onGround = false;
+        player.coyoteTime = 0;
       }
 
-      player.vx *= player.onGround ? 0.77 : 0.91;
-      player.vx = clamp(player.vx, sprint ? -10.2 : -7.4, sprint ? 10.2 : 7.4);
+      player.vx = clamp(player.vx, -maxRunSpeed, maxRunSpeed);
       if (onLadder) {
         if (jump) {
           player.vy = -4.2;
@@ -884,8 +929,14 @@ export default function MinecraftInspiredWebGame() {
         uiCtx.strokeRect(x + 0.5, y + 0.5, slot - 1, slot - 1);
 
         if (item) {
-          uiCtx.fillStyle = item.color;
-          uiCtx.fillRect(x + 11, y + 10, 26, 26);
+          const texture =
+            buildModeRef.current === "background"
+              ? getWallTexture(item)
+              : getBlockTexture(item);
+          uiCtx.save();
+          uiCtx.imageSmoothingEnabled = false;
+          uiCtx.drawImage(texture, x + 11, y + 10, 26, 26);
+          uiCtx.restore();
           uiCtx.strokeStyle = "rgba(0,0,0,.35)";
           uiCtx.lineWidth = 1;
           uiCtx.strokeRect(x + 11.5, y + 10.5, 25, 25);
@@ -915,6 +966,32 @@ export default function MinecraftInspiredWebGame() {
       uiCtx.font = "850 13px ui-sans-serif, system-ui";
       uiCtx.textAlign = "left";
       uiCtx.fillText(label, 28, VIEW_H - 28);
+    };
+
+    const drawSelectionHint = () => {
+      const hint = selectionHintRef.current;
+      const remaining = hint.until - performance.now() / 1000;
+      if (!hint.text || remaining <= 0) return;
+
+      const alpha = clamp(Math.min(remaining / 0.28, 1), 0, 1);
+      const y = VIEW_H - 88 - (1 - alpha) * 7;
+      const text = `Selected ${hint.text}`;
+
+      uiCtx.save();
+      uiCtx.globalAlpha = alpha;
+      uiCtx.font = "900 18px ui-sans-serif, system-ui";
+      uiCtx.textAlign = "center";
+      const width = Math.min(300, uiCtx.measureText(text).width + 34);
+      const x = VIEW_W / 2 - width / 2;
+
+      uiCtx.fillStyle = "rgba(2,6,23,.82)";
+      uiCtx.fillRect(x, y - 26, width, 36);
+      uiCtx.strokeStyle = hint.color;
+      uiCtx.lineWidth = 2;
+      uiCtx.strokeRect(x + 0.5, y - 25.5, width - 1, 35);
+      uiCtx.fillStyle = hint.color;
+      uiCtx.fillText(text, VIEW_W / 2, y - 3);
+      uiCtx.restore();
     };
 
     const drawHelpOverlay = () => {
@@ -996,40 +1073,144 @@ export default function MinecraftInspiredWebGame() {
       ctx.clearRect(0, 0, VIEW_W, VIEW_H);
       uiCtx.clearRect(0, 0, VIEW_W, VIEW_H);
 
-      const grad = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-      grad.addColorStop(
+      const night = 1 - day;
+      const sunset = Math.max(0, 1 - Math.abs(day - 0.5) * 3.1);
+      const skyTop = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+      skyTop.addColorStop(
         0,
-        `rgb(${Math.floor(25 + day * 65)}, ${Math.floor(45 + day * 120)}, ${Math.floor(85 + day * 155)})`,
+        `rgb(${Math.floor(8 + day * 90 + sunset * 55)}, ${Math.floor(18 + day * 125 + sunset * 42)}, ${Math.floor(38 + day * 170 + sunset * 10)})`,
       );
-      grad.addColorStop(
+      skyTop.addColorStop(
+        0.48,
+        `rgb(${Math.floor(18 + day * 95 + sunset * 105)}, ${Math.floor(34 + day * 120 + sunset * 58)}, ${Math.floor(72 + day * 120 + sunset * 18)})`,
+      );
+      skyTop.addColorStop(
         1,
-        `rgb(${Math.floor(85 + day * 65)}, ${Math.floor(130 + day * 60)}, ${Math.floor(160 + day * 55)})`,
+        `rgb(${Math.floor(34 + day * 105 + sunset * 120)}, ${Math.floor(48 + day * 118 + sunset * 46)}, ${Math.floor(78 + day * 98 + sunset * 6)})`,
       );
-      ctx.fillStyle = grad;
+      ctx.fillStyle = skyTop;
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
+      const horizonGlow = ctx.createLinearGradient(0, VIEW_H * 0.34, 0, VIEW_H);
+      horizonGlow.addColorStop(0, "rgba(255,255,255,0)");
+      horizonGlow.addColorStop(
+        1,
+        `rgba(255,${Math.floor(118 + sunset * 95)},${Math.floor(92 + sunset * 34)},${0.08 + sunset * 0.16})`,
+      );
+      ctx.fillStyle = horizonGlow;
+      ctx.fillRect(0, VIEW_H * 0.34, VIEW_W, VIEW_H * 0.66);
+
+      if (night > 0.14) {
+        ctx.save();
+        const starAlpha = (night - 0.14) / 0.86;
+        for (let i = 0; i < 44; i++) {
+          const sx =
+            (i * 137.53 + Math.sin(i * 91.7) * 43 - cam.x * 0.015) %
+            (VIEW_W + 80);
+          const sy = 28 + ((i * 53.17) % (VIEW_H * 0.5));
+          const twinkle = 0.45 + 0.55 * Math.sin(time * 2.4 + i * 1.7);
+          ctx.fillStyle = `rgba(255,255,255,${starAlpha * twinkle * 0.9})`;
+          ctx.fillRect(
+            ((sx + VIEW_W + 80) % (VIEW_W + 80)) - 40,
+            sy,
+            i % 5 === 0 ? 2 : 1,
+            i % 5 === 0 ? 2 : 1,
+          );
+        }
+        ctx.restore();
+      }
+
       const orbX = 90 + day * 760;
-      const orbY = 84 + Math.cos(time * dayCycleSpeed) * 40;
-      ctx.fillStyle =
-        day > 0.5 ? "rgba(255,237,150,.95)" : "rgba(220,230,255,.85)";
-      ctx.beginPath();
-      ctx.arc(orbX, orbY, day > 0.5 ? 34 : 24, 0, Math.PI * 2);
-      ctx.fill();
+      const orbY = 86 + Math.cos(time * dayCycleSpeed) * 42;
+
+      if (day >= 0.5) {
+        const sunGlow = ctx.createRadialGradient(
+          orbX,
+          orbY,
+          10,
+          orbX,
+          orbY,
+          112,
+        );
+        sunGlow.addColorStop(0, "rgba(255,244,190,.95)");
+        sunGlow.addColorStop(0.35, "rgba(255,212,110,.42)");
+        sunGlow.addColorStop(1, "rgba(255,200,90,0)");
+        ctx.fillStyle = sunGlow;
+        ctx.fillRect(orbX - 112, orbY - 112, 224, 224);
+
+        ctx.fillStyle = "#fff2b0";
+        ctx.beginPath();
+        ctx.arc(orbX, orbY, 30 + sunset * 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const moonGlow = ctx.createRadialGradient(
+          orbX,
+          orbY,
+          8,
+          orbX,
+          orbY,
+          82,
+        );
+        moonGlow.addColorStop(0, "rgba(236,244,255,.72)");
+        moonGlow.addColorStop(0.45, "rgba(182,210,255,.18)");
+        moonGlow.addColorStop(1, "rgba(182,210,255,0)");
+        ctx.fillStyle = moonGlow;
+        ctx.fillRect(orbX - 82, orbY - 82, 164, 164);
+
+        ctx.fillStyle = "#edf5ff";
+        ctx.beginPath();
+        ctx.arc(orbX, orbY, 23, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(150,175,220,.3)";
+        ctx.beginPath();
+        ctx.arc(orbX + 7, orbY - 4, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
       for (const cloud of cloudsRef.current) {
         const x = cloud.x - cam.x * 0.25;
         const y = cloud.y;
         const s = cloud.scale;
-        ctx.fillStyle = `rgba(255,255,255,${0.18 + day * 0.32})`;
+        const drift = Math.sin(time * 0.22 + x * 0.003) * 4;
+        const cloudFill = `rgba(${Math.floor(220 + day * 30)}, ${Math.floor(226 + day * 24)}, ${Math.floor(235 + day * 20)}, ${0.16 + day * 0.38})`;
+
+        ctx.fillStyle = cloudFill;
         ctx.beginPath();
-        ctx.arc(x, y, 18 * s, 0, Math.PI * 2);
-        ctx.arc(x + 24 * s, y - 8 * s, 24 * s, 0, Math.PI * 2);
-        ctx.arc(x + 52 * s, y, 18 * s, 0, Math.PI * 2);
-        ctx.arc(x + 28 * s, y + 10 * s, 18 * s, 0, Math.PI * 2);
+        ctx.ellipse(x + 14 * s, y + drift, 28 * s, 15 * s, 0, 0, Math.PI * 2);
+        ctx.ellipse(
+          x + 38 * s,
+          y - 7 * s + drift,
+          24 * s,
+          18 * s,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.ellipse(
+          x + 64 * s,
+          y - 2 * s + drift,
+          30 * s,
+          17 * s,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.ellipse(
+          x + 88 * s,
+          y + 5 * s + drift,
+          22 * s,
+          13 * s,
+          0,
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
+
+        ctx.fillStyle = `rgba(255,255,255,${0.06 + day * 0.18})`;
+        ctx.fillRect(x + 18 * s, y - 8 * s + drift, 48 * s, 4 * s);
       }
 
-      ctx.fillStyle = "rgba(20,50,70,.22)";
+      ctx.fillStyle = `rgba(${Math.floor(16 + day * 26)},${Math.floor(42 + day * 42)},${Math.floor(72 + day * 46)},${0.2 + night * 0.08})`;
       ctx.beginPath();
       ctx.moveTo(0, 395);
       for (let x = 0; x <= VIEW_W; x += 40) {
@@ -1134,8 +1315,17 @@ export default function MinecraftInspiredWebGame() {
       );
       drawParticles(ctx, particlesRef.current, cam);
 
-      const night = 1 - day;
-      drawLightMask(ctx, skyCoverage, world, cam, startX, endX, startY, endY, day);
+      drawLightMask(
+        ctx,
+        skyCoverage,
+        world,
+        cam,
+        startX,
+        endX,
+        startY,
+        endY,
+        day,
+      );
       drawTorchLights(
         ctx,
         world,
@@ -1162,6 +1352,7 @@ export default function MinecraftInspiredWebGame() {
       uiCtx.stroke();
 
       drawHotbar();
+      drawSelectionHint();
 
       if (helpOpenRef.current && !pausedRef.current) drawHelpOverlay();
       if (pausedRef.current) drawPauseMenu();
@@ -1204,8 +1395,8 @@ export default function MinecraftInspiredWebGame() {
             buildMode={buildMode}
             selected={selected}
             selectedWall={selectedWall}
-            onSelect={setSelected}
-            onSelectWall={setSelectedWall}
+            onSelect={selectBlock}
+            onSelectWall={selectWall}
             onSetForegroundMode={() => setBuildMode("foreground")}
             onSetBackgroundMode={() => setBuildMode("background")}
           />

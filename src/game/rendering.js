@@ -65,13 +65,14 @@ function drawPixelLeg(
   const lowerLen = 10;
   const legW = 8;
   const maxUpper = running ? 0.34 : 0.22;
-  const maxLower = running ? 0.24 : 0.15;
+  const maxLower = running ? 0.3 : 0.2;
   const upperAngle = phase * maxUpper;
-  const lowerAngle = -phase * maxLower;
+  const lowerAngle = -phase * maxLower - Math.max(0, Math.abs(phase) - 0.35) * 0.1;
+  const footLift = Math.max(0, -phase) * (running ? 3.4 : 2.2);
   const kneeX = hipX + Math.sin(upperAngle) * upperLen;
   const kneeY = hipY + Math.cos(upperAngle) * upperLen;
   const footX = kneeX + Math.sin(upperAngle + lowerAngle) * lowerLen;
-  const footY = kneeY + Math.cos(upperAngle + lowerAngle) * lowerLen;
+  const footY = kneeY + Math.cos(upperAngle + lowerAngle) * lowerLen - footLift;
 
   ctx.save();
   ctx.translate(hipX, hipY);
@@ -109,15 +110,17 @@ export function drawPlayer(ctx, px, py, time, vx, onGround, facing, running) {
   const speedAbs = Math.abs(vx);
   const moving = speedAbs > 0.25;
   const runBoost = running ? 1.35 : 1;
-  const cycle = time * (moving ? 9.5 * runBoost + speedAbs * 0.32 : 3);
+  const cycle = time * (moving ? 8.2 * runBoost + speedAbs * 0.25 : 3);
   const stride = moving ? Math.sin(cycle) : 0;
   const counterStride = moving ? Math.sin(cycle + Math.PI) : 0;
+  const heelPlant = moving && onGround ? Math.cos(cycle) * 0.8 : 0;
   const bob =
-    moving && onGround ? Math.abs(Math.sin(cycle)) * (running ? 2.4 : 1.35) : 0;
-  const torsoTilt = moving && onGround ? stride * (running ? 0.035 : 0.018) : 0;
+    moving && onGround ? Math.abs(Math.sin(cycle)) * (running ? 2 : 1.1) : 0;
+  const torsoTilt =
+    moving && onGround ? stride * (running ? 0.045 : 0.026) : 0;
   const jumpLift = !onGround ? -2.2 : 0;
-  const armAngleA = counterStride * (running ? 0.72 : 0.44);
-  const armAngleB = stride * (running ? 0.72 : 0.44);
+  const armAngleA = counterStride * (running ? 0.82 : 0.5) - heelPlant * 0.02;
+  const armAngleB = stride * (running ? 0.82 : 0.5) + heelPlant * 0.02;
 
   ctx.save();
   ctx.translate(px, py + jumpLift);
@@ -131,7 +134,7 @@ export function drawPlayer(ctx, px, py, time, vx, onGround, facing, running) {
   ctx.beginPath();
   ctx.ellipse(18, 62, running ? 16 : 13, moving ? 4.5 : 4, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.translate(0, bob);
+  ctx.translate(heelPlant * 0.45, bob);
   drawPixelLimb(ctx, 2, 26, 7, 24, "#c98d58", armAngleA, 3.5, 3);
   drawPixelLeg(
     ctx,

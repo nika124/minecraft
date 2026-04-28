@@ -165,6 +165,7 @@ export function createPlayer() {
     w: TILE,
     h: 60,
     onGround: false,
+    coyoteTime: 0,
     facing: 1,
   };
 }
