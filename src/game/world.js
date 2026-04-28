@@ -171,7 +171,7 @@ export function createPlayer() {
 }
 
 export function createStats(
-  message = "WASD / arrows to move. Hold Shift to run. Left click mines. Right click builds. Press B for walls. Press 0 for torches.",
+  message = "WASD / arrows to move. Hold Shift to run. Left click mines. Right click builds. Press B for walls. Press 0 for water.",
 ) {
   return { blocksMined: 0, blocksPlaced: 0, wallsBuilt: 0, message };
 }

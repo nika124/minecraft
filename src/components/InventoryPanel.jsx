@@ -51,7 +51,11 @@ export default function InventoryPanel({
               <span className="palette-copy">
                 <span>{index === 9 ? "0" : index + 1}. {block.name}</span>
                 <small>
-                  {block.id === BLOCKS.torch.id ? "Light source" : "Solid block"}
+                  {block.id === BLOCKS.torch.id
+                    ? "Light source"
+                    : block.id === BLOCKS.water.id
+                      ? "Flowing liquid"
+                      : "Solid block"}
                 </small>
               </span>
             </button>

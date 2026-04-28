@@ -7,8 +7,23 @@ export function drawWall(ctx, wall, x, y, size) {
   ctx.drawImage(getWallTexture(wall), x, y, size, size);
 }
 
-export function drawBlock(ctx, block, x, y, size, time) {
+export function drawBlock(ctx, block, x, y, size, time, waterLevel = 0) {
   if (!block || block.id === 0) return;
+
+  if (block.id === BLOCKS.water.id) {
+    const texture = getBlockTexture(block);
+    const alpha = clamp(0.86 - waterLevel * 0.08, 0.42, 0.86);
+    const bob = Math.sin(time * 4 + x * 0.08 + y * 0.05) * 1.5;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(texture, x, y, size, size);
+    ctx.fillStyle = "rgba(210,245,255,.28)";
+    ctx.fillRect(x + 3 + bob, y + 6, size - 10, 2);
+    ctx.fillRect(x + 10 - bob, y + 18, size - 14, 2);
+    ctx.restore();
+    return;
+  }
 
   if (block.id === BLOCKS.torch.id) {
     ctx.save();
@@ -338,7 +353,12 @@ function torchRevealAt(world, skyCoverage, x, y) {
 }
 
 function sunlightOpacity(blockId) {
-  if (blockId === BLOCKS.air.id || blockId === BLOCKS.torch.id) return 0;
+  if (
+    blockId === BLOCKS.air.id ||
+    blockId === BLOCKS.torch.id ||
+    blockId === BLOCKS.water.id
+  )
+    return 0;
   if (blockId === BLOCKS.glass.id || blockId === BLOCKS.leaves.id) return 0;
   if (blockId === BLOCKS.wood.id) return 0.82;
   return 1;

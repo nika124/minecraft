@@ -28,6 +28,12 @@ export const BLOCKS = {
     color: "#f59e0b",
     glow: "#fbbf24",
   },
+  water: {
+    id: 11,
+    name: "Water",
+    solid: false,
+    color: "rgba(45, 145, 235, .72)",
+  },
 };
 
 export const WALLS = {
@@ -93,8 +99,8 @@ export const PLACEABLE = [
   BLOCKS.sand,
   BLOCKS.brick,
   BLOCKS.glass,
-  BLOCKS.ore,
   BLOCKS.torch,
+  BLOCKS.water,
 ];
 
 export const WALL_PLACEABLE = [

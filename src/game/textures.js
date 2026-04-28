@@ -228,6 +228,28 @@ function drawTorch(ctx) {
   ctx.fill();
 }
 
+function drawWater(ctx) {
+  ctx.clearRect(0, 0, TILE, TILE);
+  const gradient = ctx.createLinearGradient(0, 0, 0, TILE);
+  gradient.addColorStop(0, "rgba(83, 190, 255, .68)");
+  gradient.addColorStop(0.52, "rgba(37, 132, 230, .7)");
+  gradient.addColorStop(1, "rgba(20, 84, 180, .78)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, TILE, TILE);
+
+  ctx.fillStyle = "rgba(220, 250, 255, .34)";
+  for (let y = 5; y < TILE; y += 9) {
+    for (let x = -4; x < TILE; x += 14) {
+      ctx.fillRect(x + ((y / 9) % 2) * 5, y, 8, 2);
+    }
+  }
+
+  ctx.fillStyle = "rgba(255, 255, 255, .16)";
+  ctx.fillRect(2, 2, TILE - 4, 3);
+  ctx.strokeStyle = "rgba(160, 225, 255, .55)";
+  ctx.strokeRect(0.5, 0.5, TILE - 1, TILE - 1);
+}
+
 function drawWallBase(ctx, wall) {
   fillBase(ctx, wall.color);
   speckles(
@@ -254,6 +276,7 @@ export function getBlockTexture(block) {
     else if (block.id === BLOCKS.glass.id) drawGlass(ctx);
     else if (block.id === BLOCKS.ore.id) drawOre(ctx);
     else if (block.id === BLOCKS.torch.id) drawTorch(ctx);
+    else if (block.id === BLOCKS.water.id) drawWater(ctx);
   });
 }
 

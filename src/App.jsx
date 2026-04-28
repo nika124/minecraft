@@ -43,6 +43,13 @@ void GameHeader;
 void GameStage;
 void InventoryPanel;
 
+const MAX_WATER_SPREAD = 5;
+const WATER_FLOW_STEP = 0.11;
+
+function createWaterLevels() {
+  return Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(-1));
+}
+
 export default function MinecraftInspiredWebGame() {
   const [initialWorld] = useState(() => makeWorld());
   const gameShellRef = useRef(null);
@@ -55,6 +62,8 @@ export default function MinecraftInspiredWebGame() {
   const worldDataRef = useRef(initialWorld);
   const worldRef = useRef(initialWorld.world);
   const wallsRef = useRef(initialWorld.walls);
+  const waterLevelsRef = useRef(createWaterLevels());
+  const waterSourcesRef = useRef(new Set());
   const laddersRef = useRef(
     Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(false)),
   );
@@ -154,6 +163,8 @@ export default function MinecraftInspiredWebGame() {
     worldDataRef.current = next;
     worldRef.current = next.world;
     wallsRef.current = next.walls;
+    waterLevelsRef.current = createWaterLevels();
+    waterSourcesRef.current = new Set();
     laddersRef.current = Array.from({ length: WORLD_H }, () =>
       Array(WORLD_W).fill(false),
     );
@@ -368,6 +379,7 @@ export default function MinecraftInspiredWebGame() {
     let raf = 0;
     let last = performance.now();
     let mineCooldown = 0;
+    let waterFlowTimer = 0;
     let time = 0;
 
     const blockHasSupport = (world, walls, x, y) => {
@@ -381,7 +393,7 @@ export default function MinecraftInspiredWebGame() {
       return neighbors.some(([nx, ny]) => {
         if (nx < 0 || ny < 0 || nx >= WORLD_W || ny >= WORLD_H) return false;
         return (
-          world[ny][nx] !== BLOCKS.air.id || walls[ny][nx] !== WALLS.empty.id
+          BLOCK_BY_ID[world[ny][nx]]?.solid || walls[ny][nx] !== WALLS.empty.id
         );
       });
     };
@@ -397,8 +409,7 @@ export default function MinecraftInspiredWebGame() {
       const hasBlockBelow =
         y < WORLD_H - 1 &&
         !(x === ignoreX && y + 1 === ignoreY) &&
-        world[y + 1][x] !== BLOCKS.air.id &&
-        world[y + 1][x] !== BLOCKS.torch.id;
+        BLOCK_BY_ID[world[y + 1][x]]?.solid;
       const hasBackgroundWall = walls[y][x] !== WALLS.empty.id;
       return hasBlockBelow || hasBackgroundWall;
     };
@@ -441,6 +452,96 @@ export default function MinecraftInspiredWebGame() {
       }
 
       return false;
+    };
+
+    const updateWaterFlow = () => {
+      const world = worldRef.current;
+      const levels = waterLevelsRef.current;
+      const sources = waterSourcesRef.current;
+      const nextWater = new Map();
+      const queue = [];
+      const changedColumns = new Set();
+
+      for (const key of [...sources]) {
+        const [x, y] = key.split(",").map(Number);
+        if (
+          x < 0 ||
+          y < 0 ||
+          x >= WORLD_W ||
+          y >= WORLD_H ||
+          (world[y][x] !== BLOCKS.air.id && world[y][x] !== BLOCKS.water.id)
+        ) {
+          sources.delete(key);
+          continue;
+        }
+
+        nextWater.set(key, 0);
+        queue.push({ x, y, level: 0 });
+      }
+
+      for (let i = 0; i < queue.length; i++) {
+        const { x, y, level } = queue[i];
+        const belowY = y + 1;
+        const canFlowDown =
+          belowY < WORLD_H &&
+          (world[belowY][x] === BLOCKS.air.id ||
+            world[belowY][x] === BLOCKS.water.id);
+
+        if (canFlowDown) {
+          const downKey = `${x},${belowY}`;
+          if (!nextWater.has(downKey) || nextWater.get(downKey) > 0) {
+            nextWater.set(downKey, 0);
+            queue.push({ x, y: belowY, level: 0 });
+          }
+          continue;
+        }
+
+        const nextLevel = level + 1;
+        if (nextLevel > MAX_WATER_SPREAD) continue;
+
+        for (const dx of [-1, 1]) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= WORLD_W) continue;
+          if (world[y][nx] !== BLOCKS.air.id && world[y][nx] !== BLOCKS.water.id)
+            continue;
+
+          const nextKey = `${nx},${y}`;
+          if (nextWater.has(nextKey) && nextWater.get(nextKey) <= nextLevel)
+            continue;
+
+          nextWater.set(nextKey, nextLevel);
+          queue.push({ x: nx, y, level: nextLevel });
+        }
+      }
+
+      for (let y = 0; y < WORLD_H; y++) {
+        for (let x = 0; x < WORLD_W; x++) {
+          if (world[y][x] !== BLOCKS.water.id) {
+            levels[y][x] = -1;
+            continue;
+          }
+
+          const key = `${x},${y}`;
+          if (!nextWater.has(key)) {
+            world[y][x] = BLOCKS.air.id;
+            levels[y][x] = -1;
+            changedColumns.add(x);
+          }
+        }
+      }
+
+      for (const [key, level] of nextWater) {
+        const [x, y] = key.split(",").map(Number);
+        if (world[y][x] !== BLOCKS.water.id || levels[y][x] !== level) {
+          world[y][x] = BLOCKS.water.id;
+          levels[y][x] = level;
+          changedColumns.add(x);
+        }
+      }
+
+      for (const x of changedColumns) {
+        updateSkyCoverageColumn(world, skyCoverageRef.current, x);
+      }
     };
 
     const removeUnsupportedTorches = (world, walls, x, y) => {
@@ -604,6 +705,29 @@ export default function MinecraftInspiredWebGame() {
       const blockKey = `${worldX},${worldY}`;
 
       if (mouse.button === 0 && currentBlock.id !== BLOCKS.air.id) {
+        if (currentBlock.id === BLOCKS.water.id) {
+          world[worldY][worldX] = BLOCKS.air.id;
+          waterLevelsRef.current[worldY][worldX] = -1;
+          waterSourcesRef.current.delete(blockKey);
+          placedBlocksRef.current.delete(blockKey);
+          updateSkyCoverageColumn(world, skyCoverageRef.current, worldX);
+          emitParticles(
+            particlesRef.current,
+            worldX * TILE + TILE / 2,
+            worldY * TILE + TILE / 2,
+            BLOCKS.water.color,
+            8,
+          );
+          setStats((current) => ({
+            ...current,
+            blocksMined: current.blocksMined + 1,
+            message: "Picked up Water.",
+          }));
+          updateWaterFlow();
+          mineCooldown = 0.12;
+          return;
+        }
+
         world[worldY][worldX] = BLOCKS.air.id;
         updateSkyCoverageColumn(world, skyCoverageRef.current, worldX);
         const torchesRemoved = removeUnsupportedTorches(
@@ -664,16 +788,33 @@ export default function MinecraftInspiredWebGame() {
           py >= player.y + player.h
         );
         const hasSupport =
-          placeBlock.id === BLOCKS.torch.id
-            ? torchHasSupport(world, walls, worldX, worldY)
-            : blockHasSupport(world, walls, worldX, worldY);
+          placeBlock.id === BLOCKS.water.id
+            ? true
+            : placeBlock.id === BLOCKS.torch.id
+              ? torchHasSupport(world, walls, worldX, worldY)
+              : blockHasSupport(world, walls, worldX, worldY);
+        const replacingWater =
+          currentBlock.id === BLOCKS.water.id &&
+          placeBlock.id !== BLOCKS.water.id;
 
         if (
-          currentBlock.id === BLOCKS.air.id &&
+          (currentBlock.id === BLOCKS.air.id || replacingWater) &&
           !touchingPlayer &&
           hasSupport
         ) {
+          if (replacingWater) {
+            waterLevelsRef.current[worldY][worldX] = -1;
+            waterSourcesRef.current.delete(blockKey);
+            placedBlocksRef.current.delete(blockKey);
+          }
           world[worldY][worldX] = placeBlock.id;
+          if (placeBlock.id === BLOCKS.water.id) {
+            waterLevelsRef.current[worldY][worldX] = 0;
+            waterSourcesRef.current.add(blockKey);
+            updateWaterFlow();
+          } else if (replacingWater) {
+            updateWaterFlow();
+          }
           updateSkyCoverageColumn(world, skyCoverageRef.current, worldX);
           placedBlocksRef.current.add(blockKey);
           emitParticles(
@@ -699,6 +840,8 @@ export default function MinecraftInspiredWebGame() {
             message:
               placeBlock.id === BLOCKS.torch.id
                 ? "Torches need a block below or a background wall."
+                : placeBlock.id === BLOCKS.water.id
+                  ? "Water needs an empty tile."
                 : "Blocks need support.",
           }));
           mineCooldown = 0.08;
@@ -724,6 +867,11 @@ export default function MinecraftInspiredWebGame() {
       }
 
       particlesRef.current = updateParticles(particlesRef.current, dt);
+      waterFlowTimer += dt;
+      if (waterFlowTimer >= WATER_FLOW_STEP) {
+        waterFlowTimer = 0;
+        updateWaterFlow();
+      }
 
       const left = Boolean(keys.a || keys.arrowleft);
       const right = Boolean(keys.d || keys.arrowright);
@@ -1065,6 +1213,7 @@ export default function MinecraftInspiredWebGame() {
       const player = playerRef.current;
       const world = worldRef.current;
       const walls = wallsRef.current;
+      const waterLevels = waterLevelsRef.current;
       const ladders = laddersRef.current;
       const skyCoverage = skyCoverageRef.current;
       const heldItem =
@@ -1305,6 +1454,7 @@ export default function MinecraftInspiredWebGame() {
               y * TILE - cam.y,
               TILE,
               time,
+              block.id === BLOCKS.water.id ? waterLevels[y][x] : 0,
             );
           }
         }
