@@ -43,8 +43,8 @@ void GameHeader;
 void GameStage;
 void InventoryPanel;
 
-const MAX_WATER_SPREAD = 5;
-const WATER_FLOW_STEP = 0.11;
+const MAX_WATER_SPREAD = 7;
+const WATER_FLOW_STEP = 0.16;
 
 function createWaterLevels() {
   return Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(-1));
@@ -398,6 +398,10 @@ export default function MinecraftInspiredWebGame() {
       });
     };
 
+    const waterHasSupport = (world, walls, x, y) =>
+      (y < WORLD_H - 1 && BLOCK_BY_ID[world[y + 1][x]]?.solid) ||
+      walls[y][x] !== WALLS.empty.id;
+
     const torchHasSupport = (
       world,
       walls,
@@ -458,84 +462,152 @@ export default function MinecraftInspiredWebGame() {
       const world = worldRef.current;
       const levels = waterLevelsRef.current;
       const sources = waterSourcesRef.current;
-      const nextWater = new Map();
-      const queue = [];
       const changedColumns = new Set();
+
+      const isInside = (x, y) => x >= 0 && y >= 0 && x < WORLD_W && y < WORLD_H;
+      const keyOf = (x, y) => `${x},${y}`;
+      const isSolid = (x, y) =>
+        !isInside(x, y) || Boolean(BLOCK_BY_ID[world[y][x]]?.solid);
+      const isWater = (x, y) => isInside(x, y) && world[y][x] === BLOCKS.water.id;
+      const isSource = (x, y) => sources.has(keyOf(x, y));
+      const isOpenForWater = (x, y) =>
+        isInside(x, y) &&
+        (world[y][x] === BLOCKS.air.id || world[y][x] === BLOCKS.water.id);
+      const isHorizontallySupported = (x, y) =>
+        y === WORLD_H - 1 ||
+        isSolid(x, y + 1) ||
+        isWater(x, y + 1) ||
+        wallsRef.current[y][x] !== WALLS.empty.id;
+
+      const setWater = (x, y, level, source = false) => {
+        if (!isOpenForWater(x, y)) return false;
+        const nextLevel = clamp(level, 0, MAX_WATER_SPREAD);
+        const key = keyOf(x, y);
+        const existingLevel = levels[y][x];
+
+        if (
+          world[y][x] === BLOCKS.water.id &&
+          existingLevel <= nextLevel &&
+          isSource(x, y) === source
+        ) {
+          return false;
+        }
+
+        world[y][x] = BLOCKS.water.id;
+        levels[y][x] = nextLevel;
+        if (source) sources.add(key);
+        changedColumns.add(x);
+        return true;
+      };
+
+      const clearWater = (x, y) => {
+        if (!isWater(x, y)) return;
+        world[y][x] = BLOCKS.air.id;
+        levels[y][x] = -1;
+        sources.delete(keyOf(x, y));
+        placedBlocksRef.current.delete(keyOf(x, y));
+        changedColumns.add(x);
+      };
 
       for (const key of [...sources]) {
         const [x, y] = key.split(",").map(Number);
         if (
-          x < 0 ||
-          y < 0 ||
-          x >= WORLD_W ||
-          y >= WORLD_H ||
-          (world[y][x] !== BLOCKS.air.id && world[y][x] !== BLOCKS.water.id)
+          !isInside(x, y) ||
+          world[y][x] !== BLOCKS.water.id ||
+          levels[y][x] !== 0
         ) {
           sources.delete(key);
           continue;
-        }
-
-        nextWater.set(key, 0);
-        queue.push({ x, y, level: 0 });
-      }
-
-      for (let i = 0; i < queue.length; i++) {
-        const { x, y, level } = queue[i];
-        const belowY = y + 1;
-        const canFlowDown =
-          belowY < WORLD_H &&
-          (world[belowY][x] === BLOCKS.air.id ||
-            world[belowY][x] === BLOCKS.water.id);
-
-        if (canFlowDown) {
-          const downKey = `${x},${belowY}`;
-          if (!nextWater.has(downKey) || nextWater.get(downKey) > 0) {
-            nextWater.set(downKey, 0);
-            queue.push({ x, y: belowY, level: 0 });
-          }
-          continue;
-        }
-
-        const nextLevel = level + 1;
-        if (nextLevel > MAX_WATER_SPREAD) continue;
-
-        for (const dx of [-1, 1]) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= WORLD_W) continue;
-          if (world[y][nx] !== BLOCKS.air.id && world[y][nx] !== BLOCKS.water.id)
-            continue;
-
-          const nextKey = `${nx},${y}`;
-          if (nextWater.has(nextKey) && nextWater.get(nextKey) <= nextLevel)
-            continue;
-
-          nextWater.set(nextKey, nextLevel);
-          queue.push({ x: nx, y, level: nextLevel });
         }
       }
 
       for (let y = 0; y < WORLD_H; y++) {
         for (let x = 0; x < WORLD_W; x++) {
-          if (world[y][x] !== BLOCKS.water.id) {
-            levels[y][x] = -1;
+          if (
+            !isWater(x, y) &&
+            isOpenForWater(x, y) &&
+            isHorizontallySupported(x, y) &&
+            isSource(x - 1, y) &&
+            isSource(x + 1, y)
+          ) {
+            setWater(x, y, 0, true);
             continue;
           }
 
-          const key = `${x},${y}`;
-          if (!nextWater.has(key)) {
-            world[y][x] = BLOCKS.air.id;
-            levels[y][x] = -1;
-            changedColumns.add(x);
+          if (!isWater(x, y) || isSource(x, y)) continue;
+          if (!isHorizontallySupported(x, y)) continue;
+
+          const sourceNeighbors =
+            Number(isSource(x - 1, y)) + Number(isSource(x + 1, y));
+          if (sourceNeighbors >= 2) setWater(x, y, 0, true);
+        }
+      }
+
+      const waterCells = [];
+      for (let y = WORLD_H - 1; y >= 0; y--) {
+        for (let x = 0; x < WORLD_W; x++) {
+          if (isWater(x, y)) {
+            waterCells.push({ x, y, level: levels[y][x], source: isSource(x, y) });
           }
         }
       }
 
-      for (const [key, level] of nextWater) {
-        const [x, y] = key.split(",").map(Number);
-        if (world[y][x] !== BLOCKS.water.id || levels[y][x] !== level) {
-          world[y][x] = BLOCKS.water.id;
-          levels[y][x] = level;
-          changedColumns.add(x);
+      waterCells.sort((a, b) => a.level - b.level || b.y - a.y);
+
+      for (const cell of waterCells) {
+        const { x, y } = cell;
+        if (!isWater(x, y)) continue;
+
+        if (isOpenForWater(x, y + 1) && !isSolid(x, y + 1)) {
+          setWater(x, y + 1, Math.min(levels[y][x] + 1, 1));
+          continue;
+        }
+
+        if (!isHorizontallySupported(x, y) || levels[y][x] >= MAX_WATER_SPREAD)
+          continue;
+
+        for (const dx of [-1, 1]) {
+          const nx = x + dx;
+          const nextLevel = levels[y][x] + 1;
+          if (!isOpenForWater(nx, y) || nextLevel > MAX_WATER_SPREAD) continue;
+          if (isWater(nx, y) && levels[y][nx] <= nextLevel) continue;
+          setWater(nx, y, nextLevel);
+        }
+      }
+
+      for (let y = WORLD_H - 1; y >= 0; y--) {
+        for (let x = 0; x < WORLD_W; x++) {
+          if (!isWater(x, y) || isSource(x, y)) continue;
+
+          let desired = Infinity;
+
+          if (isWater(x, y - 1)) {
+            desired = Math.min(desired, 1);
+          }
+
+          if (isHorizontallySupported(x, y)) {
+            for (const dx of [-1, 1]) {
+              const nx = x + dx;
+              if (!isWater(nx, y)) continue;
+              desired = Math.min(desired, levels[y][nx] + 1);
+            }
+          }
+
+          if (desired <= MAX_WATER_SPREAD) {
+            const nextLevel = clamp(desired, 1, MAX_WATER_SPREAD);
+            if (nextLevel !== levels[y][x]) {
+              levels[y][x] = nextLevel;
+              changedColumns.add(x);
+            }
+            continue;
+          }
+
+          levels[y][x] += 1;
+          if (levels[y][x] > MAX_WATER_SPREAD) {
+            clearWater(x, y);
+          } else {
+            changedColumns.add(x);
+          }
         }
       }
 
@@ -789,16 +861,20 @@ export default function MinecraftInspiredWebGame() {
         );
         const hasSupport =
           placeBlock.id === BLOCKS.water.id
-            ? true
+            ? waterHasSupport(world, walls, worldX, worldY)
             : placeBlock.id === BLOCKS.torch.id
               ? torchHasSupport(world, walls, worldX, worldY)
               : blockHasSupport(world, walls, worldX, worldY);
         const replacingWater =
           currentBlock.id === BLOCKS.water.id &&
           placeBlock.id !== BLOCKS.water.id;
+        const promotingWater =
+          currentBlock.id === BLOCKS.water.id &&
+          placeBlock.id === BLOCKS.water.id &&
+          !waterSourcesRef.current.has(blockKey);
 
         if (
-          (currentBlock.id === BLOCKS.air.id || replacingWater) &&
+          (currentBlock.id === BLOCKS.air.id || replacingWater || promotingWater) &&
           !touchingPlayer &&
           hasSupport
         ) {
@@ -811,9 +887,6 @@ export default function MinecraftInspiredWebGame() {
           if (placeBlock.id === BLOCKS.water.id) {
             waterLevelsRef.current[worldY][worldX] = 0;
             waterSourcesRef.current.add(blockKey);
-            updateWaterFlow();
-          } else if (replacingWater) {
-            updateWaterFlow();
           }
           updateSkyCoverageColumn(world, skyCoverageRef.current, worldX);
           placedBlocksRef.current.add(blockKey);
@@ -827,7 +900,9 @@ export default function MinecraftInspiredWebGame() {
           setStats((current) => ({
             ...current,
             blocksPlaced: current.blocksPlaced + 1,
-            message: `Placed ${placeBlock.name}.`,
+            message: promotingWater
+              ? "Added a Water source."
+              : `Placed ${placeBlock.name}.`,
           }));
           mineCooldown = 0.12;
         } else if (
@@ -841,7 +916,7 @@ export default function MinecraftInspiredWebGame() {
               placeBlock.id === BLOCKS.torch.id
                 ? "Torches need a block below or a background wall."
                 : placeBlock.id === BLOCKS.water.id
-                  ? "Water needs an empty tile."
+                  ? "Water needs a block below it or a background wall."
                 : "Blocks need support.",
           }));
           mineCooldown = 0.08;
@@ -1455,6 +1530,9 @@ export default function MinecraftInspiredWebGame() {
               TILE,
               time,
               block.id === BLOCKS.water.id ? waterLevels[y][x] : 0,
+              block.id === BLOCKS.water.id &&
+                y > 0 &&
+                world[y - 1][x] === BLOCKS.water.id,
             );
           }
         }

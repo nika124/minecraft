@@ -7,20 +7,35 @@ export function drawWall(ctx, wall, x, y, size) {
   ctx.drawImage(getWallTexture(wall), x, y, size, size);
 }
 
-export function drawBlock(ctx, block, x, y, size, time, waterLevel = 0) {
+export function drawBlock(
+  ctx,
+  block,
+  x,
+  y,
+  size,
+  time,
+  waterLevel = 0,
+  waterConnectsUp = false,
+) {
   if (!block || block.id === 0) return;
 
   if (block.id === BLOCKS.water.id) {
     const texture = getBlockTexture(block);
-    const alpha = clamp(0.86 - waterLevel * 0.08, 0.42, 0.86);
+    const normalizedLevel = clamp(waterLevel, 0, 7);
+    const alpha = clamp(0.86 - normalizedLevel * 0.06, 0.48, 0.86);
+    const fillHeight =
+      waterConnectsUp || normalizedLevel <= 1
+        ? size
+        : clamp(size - normalizedLevel * 3.4, 7, size);
+    const topY = y + size - fillHeight;
     const bob = Math.sin(time * 4 + x * 0.08 + y * 0.05) * 1.5;
 
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.drawImage(texture, x, y, size, size);
+    ctx.drawImage(texture, 0, size - fillHeight, size, fillHeight, x, topY, size, fillHeight);
     ctx.fillStyle = "rgba(210,245,255,.28)";
-    ctx.fillRect(x + 3 + bob, y + 6, size - 10, 2);
-    ctx.fillRect(x + 10 - bob, y + 18, size - 14, 2);
+    ctx.fillRect(x + 3 + bob, topY + 4, size - 10, 2);
+    if (fillHeight > 15) ctx.fillRect(x + 10 - bob, topY + 16, size - 14, 2);
     ctx.restore();
     return;
   }
