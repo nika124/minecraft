@@ -1770,6 +1770,37 @@ export default function MinecraftInspiredWebGame() {
         heldItem,
         buildModeRef.current === "background" ? "wall" : "block",
       );
+
+      const playerScreenX = player.x - cam.x;
+      const playerScreenY = player.y - cam.y;
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          if (world[y][x] !== BLOCKS.water.id) continue;
+
+          const tileScreenX = x * TILE - cam.x;
+          const tileScreenY = y * TILE - cam.y;
+          const overlapsPlayer = !(
+            tileScreenX + TILE <= playerScreenX ||
+            tileScreenX >= playerScreenX + player.w ||
+            tileScreenY + TILE <= playerScreenY ||
+            tileScreenY >= playerScreenY + player.h
+          );
+
+          if (!overlapsPlayer) continue;
+
+          drawBlock(
+            ctx,
+            BLOCKS.water,
+            tileScreenX,
+            tileScreenY,
+            TILE,
+            time,
+            waterLevels[y][x],
+            y > 0 && world[y - 1][x] === BLOCKS.water.id,
+          );
+        }
+      }
+
       drawParticles(ctx, particlesRef.current, cam);
 
       drawLightMask(
