@@ -5,6 +5,7 @@ export default function GameStage({
   isFullscreen,
   buildMode,
   onToggleFullscreen,
+  children,
 }) {
   return (
     <div
@@ -22,6 +23,7 @@ export default function GameStage({
       <div className="game-canvas-stack">
         <canvas ref={canvasRef} className="game-canvas" />
         <canvas ref={uiCanvasRef} className="game-ui-canvas" />
+        {children}
       </div>
     </div>
   );

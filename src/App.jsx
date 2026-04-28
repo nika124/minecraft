@@ -45,9 +45,28 @@ void InventoryPanel;
 
 const MAX_WATER_SPREAD = 7;
 const WATER_FLOW_STEP = 0.16;
+const DEFAULT_GAME_SETTINGS = {
+  movementSpeed: 1,
+  dayCycleSpeed: 1,
+  rainEnabled: true,
+  rainIntensity: 0.65,
+  skyMode: "cycle",
+};
 
 function createWaterLevels() {
   return Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(-1));
+}
+
+function makeRainDrops(count = 360) {
+  return Array.from({ length: count }, () => ({
+    x: Math.random() * VIEW_W,
+    y: Math.random() * VIEW_H,
+    length: 11 + Math.random() * 24,
+    speed: 360 + Math.random() * 340,
+    drift: 55 + Math.random() * 70,
+    alpha: 0.12 + Math.random() * 0.26,
+    width: Math.random() > 0.82 ? 1.8 : 1,
+  }));
 }
 
 export default function MinecraftInspiredWebGame() {
@@ -72,6 +91,7 @@ export default function MinecraftInspiredWebGame() {
   const anchoredLaddersRef = useRef(new Set());
   const particlesRef = useRef([]);
   const cloudsRef = useRef(makeClouds());
+  const rainRef = useRef(makeRainDrops());
   const playerRef = useRef(createPlayer());
   const cameraRef = useRef({ x: 0, y: 0 });
   const selectedRef = useRef(1);
@@ -80,6 +100,7 @@ export default function MinecraftInspiredWebGame() {
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
   const helpOpenRef = useRef(false);
+  const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
 
   const [selected, setSelected] = useState(1);
   const [selectedWall, setSelectedWall] = useState(0);
@@ -88,6 +109,8 @@ export default function MinecraftInspiredWebGame() {
   const [isPaused, setIsPaused] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_SETTINGS);
   const [worldSeed, setWorldSeed] = useState(1);
 
   if (skyCoverageRef.current === null) {
@@ -113,6 +136,10 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     helpOpenRef.current = isHelpOpen;
   }, [isHelpOpen]);
+
+  useEffect(() => {
+    settingsRef.current = gameSettings;
+  }, [gameSettings]);
 
   const showSelectionHint = useCallback((item, mode = buildModeRef.current) => {
     if (!item) return;
@@ -158,6 +185,10 @@ export default function MinecraftInspiredWebGame() {
     });
   };
 
+  const updateGameSetting = (key, value) => {
+    setGameSettings((current) => ({ ...current, [key]: value }));
+  };
+
   const resetWorld = () => {
     const next = makeWorld();
     worldDataRef.current = next;
@@ -173,6 +204,7 @@ export default function MinecraftInspiredWebGame() {
     anchoredLaddersRef.current = new Set();
     particlesRef.current = [];
     cloudsRef.current = makeClouds();
+    rainRef.current = makeRainDrops();
     playerRef.current = createPlayer();
     cameraRef.current = { x: 0, y: 0 };
     setStats(createStats("New world generated."));
@@ -242,6 +274,12 @@ export default function MinecraftInspiredWebGame() {
       if (key === "f1") {
         event.preventDefault();
         setIsHelpOpen((current) => !current);
+        return;
+      }
+
+      if (key === "f2" || key === "f3") {
+        event.preventDefault();
+        setIsSettingsOpen((current) => !current);
         return;
       }
 
@@ -381,6 +419,7 @@ export default function MinecraftInspiredWebGame() {
     let mineCooldown = 0;
     let waterFlowTimer = 0;
     let time = 0;
+    let skyTime = 0;
 
     const blockHasSupport = (world, walls, x, y) => {
       const neighbors = [
@@ -962,6 +1001,7 @@ export default function MinecraftInspiredWebGame() {
 
     const update = (dt) => {
       time += dt;
+      skyTime += dt * settingsRef.current.dayCycleSpeed;
 
       if (pausedRef.current) return;
 
@@ -974,6 +1014,27 @@ export default function MinecraftInspiredWebGame() {
         cloud.x += cloud.speed * dt;
         if (cloud.x - cameraRef.current.x * 0.25 > VIEW_W + 180) {
           cloud.x = cameraRef.current.x * 0.25 - 220;
+        }
+      }
+
+      if (settingsRef.current.rainEnabled) {
+        const rainIntensity = settingsRef.current.rainIntensity;
+        const activeDrops = Math.floor(rainRef.current.length * rainIntensity);
+        const rainSpeed = 0.75 + rainIntensity * 0.7;
+
+        for (let i = 0; i < activeDrops; i++) {
+          const drop = rainRef.current[i];
+          drop.x += drop.drift * dt;
+          drop.y += drop.speed * rainSpeed * dt;
+
+          if (drop.y - drop.length > VIEW_H) {
+            drop.y = -20 - Math.random() * 120;
+            drop.x = Math.random() * (VIEW_W + 120) - 60;
+          }
+
+          if (drop.x > VIEW_W + 80) {
+            drop.x = -40 - Math.random() * 60;
+          }
         }
       }
 
@@ -990,7 +1051,8 @@ export default function MinecraftInspiredWebGame() {
       const jump = Boolean(keys.w || keys.arrowup || keys[" "]);
       const down = Boolean(keys.s || keys.arrowdown);
       const sprint = Boolean(keys.shift);
-      const maxRunSpeed = sprint ? 9.8 : 6.7;
+      const movementScale = settingsRef.current.movementSpeed;
+      const maxRunSpeed = (sprint ? 9.8 : 6.7) * movementScale;
       const onLadder = rectOverlapsLadder(
         ladders,
         player.x + 4,
@@ -1019,20 +1081,22 @@ export default function MinecraftInspiredWebGame() {
         player.w - 12,
         18,
       );
-      const moveMaxSpeed = inWater ? (sprint ? 4.1 : 3.2) : maxRunSpeed;
+      const moveMaxSpeed = inWater
+        ? (sprint ? 4.1 : 3.2) * movementScale
+        : maxRunSpeed;
 
       if (moveDir !== 0) {
         const acceleration = inWater
           ? sprint
-            ? 0.42
-            : 0.31
+            ? 0.42 * movementScale
+            : 0.31 * movementScale
           : player.onGround
             ? sprint
-              ? 1.78
-              : 1.3
+              ? 1.78 * movementScale
+              : 1.3 * movementScale
             : sprint
-              ? 0.69
-              : 0.52;
+              ? 0.69 * movementScale
+              : 0.52 * movementScale;
         const turningBoost =
           !inWater && player.onGround && Math.sign(player.vx) === -moveDir
             ? 1.45
@@ -1312,6 +1376,7 @@ export default function MinecraftInspiredWebGame() {
         ["F", "Toggle fullscreen"],
         ["Esc / P", "Pause menu"],
         ["F1", "Show or hide this help"],
+        ["F2 / F3", "Show or hide world options"],
       ];
 
       uiCtx.font = "800 15px ui-sans-serif, system-ui";
@@ -1372,7 +1437,17 @@ export default function MinecraftInspiredWebGame() {
           ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
           : (PLACEABLE[selectedRef.current] ?? BLOCKS.dirt);
       const dayCycleSpeed = 0.018;
-      const day = (Math.sin(time * dayCycleSpeed) + 1) / 2;
+      const settings = settingsRef.current;
+      const cycledDay = (Math.sin(skyTime * dayCycleSpeed) + 1) / 2;
+      const day =
+        settings.skyMode === "day"
+          ? 0.95
+          : settings.skyMode === "night"
+            ? 0.05
+            : cycledDay;
+      const rainIntensity = settings.rainEnabled ? settings.rainIntensity : 0;
+      const rainStrength = rainIntensity * (0.36 + (1 - day) * 0.34);
+      const stormShade = rainIntensity * 0.22;
 
       ctx.clearRect(0, 0, VIEW_W, VIEW_H);
       uiCtx.clearRect(0, 0, VIEW_W, VIEW_H);
@@ -1394,6 +1469,11 @@ export default function MinecraftInspiredWebGame() {
       );
       ctx.fillStyle = skyTop;
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+      if (rainIntensity > 0) {
+        ctx.fillStyle = `rgba(20, 34, 55, ${stormShade})`;
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      }
 
       const horizonGlow = ctx.createLinearGradient(0, VIEW_H * 0.34, 0, VIEW_H);
       horizonGlow.addColorStop(0, "rgba(255,255,255,0)");
@@ -1425,7 +1505,7 @@ export default function MinecraftInspiredWebGame() {
       }
 
       const orbX = 90 + day * 760;
-      const orbY = 86 + Math.cos(time * dayCycleSpeed) * 42;
+      const orbY = 86 + Math.cos(skyTime * dayCycleSpeed) * 42;
 
       if (day >= 0.5) {
         const sunGlow = ctx.createRadialGradient(
@@ -1552,6 +1632,32 @@ export default function MinecraftInspiredWebGame() {
         ctx.ellipse(cx + 92 * s, cy + 19 * s, 70 * s, 7 * s, 0, 0, Math.PI * 2);
         ctx.fill();
 
+        ctx.restore();
+      }
+
+      if (rainIntensity > 0) {
+        ctx.save();
+        ctx.lineCap = "round";
+        const activeDrops = Math.floor(rainRef.current.length * rainIntensity);
+        for (let i = 0; i < activeDrops; i++) {
+          const drop = rainRef.current[i];
+          const length = drop.length * (0.75 + rainIntensity * 0.55);
+          ctx.lineWidth = drop.width;
+          ctx.strokeStyle = `rgba(188, 226, 255, ${drop.alpha * rainStrength})`;
+          ctx.beginPath();
+          ctx.moveTo(drop.x, drop.y);
+          ctx.lineTo(drop.x - drop.drift * 0.05, drop.y + length);
+          ctx.stroke();
+        }
+
+        if (rainIntensity > 0.55) {
+          ctx.fillStyle = `rgba(185, 220, 255, ${0.035 * rainIntensity})`;
+          for (let i = 0; i < 26; i++) {
+            const mistX = (i * 83 + time * 24) % (VIEW_W + 80) - 40;
+            const mistY = 120 + ((i * 47) % (VIEW_H - 130));
+            ctx.fillRect(mistX, mistY, 34 + (i % 5) * 9, 1);
+          }
+        }
         ctx.restore();
       }
 
@@ -1740,7 +1846,114 @@ export default function MinecraftInspiredWebGame() {
           isFullscreen={isFullscreen}
           buildMode={buildMode}
           onToggleFullscreen={toggleFullscreen}
-        />
+        >
+          {isSettingsOpen && (
+            <aside
+              className="game-settings-overlay"
+              onMouseDown={(event) => event.stopPropagation()}
+              onMouseMove={(event) => event.stopPropagation()}
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <div className="settings-heading">
+                <span>World Options</span>
+                <button
+                  type="button"
+                  className="settings-close"
+                  onClick={() => setIsSettingsOpen(false)}
+                  aria-label="Close settings"
+                >
+                  x
+                </button>
+              </div>
+
+              <label className="settings-row">
+                <span>Movement speed</span>
+                <strong>{gameSettings.movementSpeed.toFixed(1)}x</strong>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2"
+                  step="0.1"
+                  value={gameSettings.movementSpeed}
+                  onChange={(event) =>
+                    updateGameSetting(
+                      "movementSpeed",
+                      Number(event.target.value),
+                    )
+                  }
+                />
+              </label>
+
+              <label className="settings-row">
+                <span>Day cycle</span>
+                <strong>{gameSettings.dayCycleSpeed.toFixed(1)}x</strong>
+                <input
+                  type="range"
+                  min="0"
+                  max="4"
+                  step="0.1"
+                  value={gameSettings.dayCycleSpeed}
+                  disabled={gameSettings.skyMode !== "cycle"}
+                  onChange={(event) =>
+                    updateGameSetting(
+                      "dayCycleSpeed",
+                      Number(event.target.value),
+                    )
+                  }
+                />
+              </label>
+
+              <div className="settings-toggle-row">
+                <span>Rain</span>
+                <button
+                  type="button"
+                  className={gameSettings.rainEnabled ? "is-active" : ""}
+                  onClick={() =>
+                    updateGameSetting("rainEnabled", !gameSettings.rainEnabled)
+                  }
+                >
+                  {gameSettings.rainEnabled ? "On" : "Off"}
+                </button>
+              </div>
+
+              <label className="settings-row">
+                <span>Rain intensity</span>
+                <strong>{Math.round(gameSettings.rainIntensity * 100)}%</strong>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value={gameSettings.rainIntensity}
+                  disabled={!gameSettings.rainEnabled}
+                  onChange={(event) =>
+                    updateGameSetting(
+                      "rainIntensity",
+                      Number(event.target.value),
+                    )
+                  }
+                />
+              </label>
+
+              <div className="settings-segmented" aria-label="Sky mode">
+                {[
+                  ["cycle", "Cycle"],
+                  ["day", "Day"],
+                  ["night", "Night"],
+                ].map(([value, label]) => (
+                  <button
+                    type="button"
+                    key={value}
+                    className={gameSettings.skyMode === value ? "is-active" : ""}
+                    onClick={() => updateGameSetting("skyMode", value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </aside>
+          )}
+        </GameStage>
         <section className="game-panels">
           <InventoryPanel
             buildMode={buildMode}

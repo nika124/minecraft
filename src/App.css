@@ -153,6 +153,98 @@ button {
   cursor: crosshair;
 }
 
+.game-settings-overlay {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  width: min(320px, calc(100% - 32px));
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 10px;
+  color: #f8fafc;
+  background: rgba(2, 6, 23, 0.9);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(14px);
+}
+
+.settings-heading,
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-heading {
+  margin-bottom: 14px;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.settings-close,
+.settings-toggle-row button,
+.settings-segmented button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.settings-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px 12px;
+  margin-bottom: 14px;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.settings-row input {
+  grid-column: 1 / -1;
+  accent-color: #67e8f9;
+}
+
+.settings-row input:disabled {
+  opacity: 0.45;
+}
+
+.settings-toggle-row {
+  margin: 8px 0 12px;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.settings-toggle-row button,
+.settings-segmented button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.settings-toggle-row button.is-active,
+.settings-segmented button.is-active {
+  color: #082f49;
+  border-color: #67e8f9;
+  background: #67e8f9;
+}
+
+.settings-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
 .game-stage.is-fullscreen .game-canvas {
   width: 100vw;
   height: 100vh !important;

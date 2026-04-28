@@ -8,6 +8,7 @@ const CONTROLS = [
   ["H", "Fill house wall"],
   ["F", "Fullscreen"],
   ["F1", "Help menu"],
+  ["F2 / F3", "World options"],
   ["Esc", "Pause menu"],
   ["1-0", "Hotbar"],
   ["P / R", "Pause/reset"],
