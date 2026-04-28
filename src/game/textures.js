@@ -94,58 +94,70 @@ function drawStone(ctx, base = "#727781") {
 }
 
 function drawWood(ctx) {
-  fillBase(ctx, "#7a461f");
+  fillBase(ctx, "#8b552c");
 
-  // clean vertical planks
-  for (let x = 0; x < TILE; x += 4) {
-    ctx.fillStyle = x % 8 === 0 ? "rgba(45,22,10,.45)" : "rgba(200,120,60,.2)";
-    ctx.fillRect(x, 0, 2, TILE);
-  }
+  // simple chunky vertical pixel bark
+  ctx.fillStyle = "#6f3f1f";
+  ctx.fillRect(0, 0, 5, TILE);
+  ctx.fillRect(13, 0, 4, TILE);
+  ctx.fillRect(27, 0, 5, TILE);
 
-  // subtle center ring (less noisy than before)
-  ctx.strokeStyle = "rgba(240,180,100,.2)";
-  ctx.beginPath();
-  ctx.ellipse(16, 16, 6, 3, 0, 0, Math.PI * 2);
-  ctx.stroke();
+  ctx.fillStyle = "#a86a35";
+  ctx.fillRect(6, 0, 6, TILE);
+  ctx.fillRect(18, 0, 8, TILE);
 
-  drawBevel(ctx, "rgba(255,200,140,.08)", "rgba(0,0,0,.35)");
+  // soft game-style highlights
+  ctx.fillStyle = "#c27a3d";
+  ctx.fillRect(7, 3, 3, 10);
+  ctx.fillRect(19, 5, 3, 13);
+  ctx.fillRect(20, 22, 3, 7);
+
+  // simple dark pixels
+  ctx.fillStyle = "#4f2b15";
+  ctx.fillRect(3, 7, 3, 4);
+  ctx.fillRect(14, 18, 3, 5);
+  ctx.fillRect(26, 10, 3, 4);
+
+  drawBevel(ctx, "rgba(255,210,150,.08)", "rgba(0,0,0,.28)");
 }
 
 function drawLeaves(ctx) {
-  fillBase(ctx, "#1f6f36");
+  fillBase(ctx, "#2f8f45");
 
-  // structured clusters instead of noise
-  const clusters = [
-    [4, 4],
-    [12, 3],
-    [20, 5],
-    [6, 14],
-    [15, 12],
-    [22, 15],
-    [5, 23],
-    [14, 22],
-    [22, 24],
-  ];
+  // simple leafy chunks, more cartoon than realistic
+  ctx.fillStyle = "#3fb85b";
+  ctx.fillRect(3, 3, 8, 8);
+  ctx.fillRect(13, 2, 9, 9);
+  ctx.fillRect(22, 5, 7, 7);
 
-  for (const [x, y] of clusters) {
-    ctx.fillStyle = "#3fb85b";
-    ctx.fillRect(x, y, 4, 4);
+  ctx.fillRect(2, 14, 10, 9);
+  ctx.fillRect(13, 12, 11, 10);
+  ctx.fillRect(23, 16, 8, 8);
 
-    ctx.fillStyle = "#2a8f44";
-    ctx.fillRect(x + 1, y + 1, 2, 2);
-  }
+  ctx.fillRect(6, 24, 8, 6);
+  ctx.fillRect(17, 23, 10, 7);
 
-  // shadows for depth
-  ctx.fillStyle = "rgba(0,0,0,.18)";
-  ctx.fillRect(0, 22, 10, 6);
-  ctx.fillRect(20, 20, 12, 8);
+  // darker chunks for depth
+  ctx.fillStyle = "#24783a";
+  ctx.fillRect(0, 8, 5, 8);
+  ctx.fillRect(9, 10, 6, 6);
+  ctx.fillRect(25, 10, 7, 5);
+  ctx.fillRect(4, 22, 6, 6);
+  ctx.fillRect(20, 21, 6, 5);
 
-  // light highlights
-  ctx.fillStyle = "rgba(255,255,255,.12)";
-  ctx.fillRect(6, 5, 6, 2);
-  ctx.fillRect(18, 7, 6, 2);
+  // bright simple highlights
+  ctx.fillStyle = "#69d765";
+  ctx.fillRect(6, 4, 4, 2);
+  ctx.fillRect(15, 4, 5, 2);
+  ctx.fillRect(15, 13, 5, 2);
+  ctx.fillRect(7, 16, 4, 2);
+  ctx.fillRect(20, 24, 4, 2);
 
-  drawBevel(ctx, "rgba(255,255,255,.06)", "rgba(0,0,0,.25)");
+  // tiny shadow at bottom
+  ctx.fillStyle = "rgba(0,0,0,.12)";
+  ctx.fillRect(0, 27, TILE, 5);
+
+  drawBevel(ctx, "rgba(255,255,255,.05)", "rgba(0,0,0,.2)");
 }
 
 function drawSand(ctx) {

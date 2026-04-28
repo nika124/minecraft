@@ -57,6 +57,14 @@ function createWaterLevels() {
   return Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(-1));
 }
 
+function getWorldWaterLevels(worldData) {
+  return worldData.waterLevels?.map((row) => [...row]) ?? createWaterLevels();
+}
+
+function getWorldWaterSources(worldData) {
+  return new Set(worldData.waterSources ?? []);
+}
+
 function makeRainDrops(count = 360) {
   return Array.from({ length: count }, () => ({
     x: Math.random() * VIEW_W,
@@ -81,8 +89,8 @@ export default function MinecraftInspiredWebGame() {
   const worldDataRef = useRef(initialWorld);
   const worldRef = useRef(initialWorld.world);
   const wallsRef = useRef(initialWorld.walls);
-  const waterLevelsRef = useRef(createWaterLevels());
-  const waterSourcesRef = useRef(new Set());
+  const waterLevelsRef = useRef(getWorldWaterLevels(initialWorld));
+  const waterSourcesRef = useRef(getWorldWaterSources(initialWorld));
   const laddersRef = useRef(
     Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(false)),
   );
@@ -194,8 +202,8 @@ export default function MinecraftInspiredWebGame() {
     worldDataRef.current = next;
     worldRef.current = next.world;
     wallsRef.current = next.walls;
-    waterLevelsRef.current = createWaterLevels();
-    waterSourcesRef.current = new Set();
+    waterLevelsRef.current = getWorldWaterLevels(next);
+    waterSourcesRef.current = getWorldWaterSources(next);
     laddersRef.current = Array.from({ length: WORLD_H }, () =>
       Array(WORLD_W).fill(false),
     );
