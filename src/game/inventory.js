@@ -1,8 +1,4 @@
-export const STARTING_INVENTORY = {
-  woodenPickaxe: 1,
-  woodenAxe: 1,
-  woodenShovel: 1,
-};
+export const STARTING_INVENTORY = {};
 
 function resolveInventory(inventoryOrRef) {
   return inventoryOrRef?.current ?? inventoryOrRef;

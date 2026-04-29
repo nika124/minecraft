@@ -16,7 +16,6 @@ import {
   BLOCK_BY_ID,
   BLOCKS,
   FOREGROUND_ITEMS,
-  PLACEABLE,
   TILE,
   VIEW_H,
   VIEW_W,
@@ -89,25 +88,15 @@ void InventoryPanel;
 void SettingsOverlay;
 void WorkbenchPanel;
 
-const DEFAULT_BLOCK_HOTBAR = [
-  PLACEABLE.indexOf(BLOCKS.grass),
-  PLACEABLE.indexOf(BLOCKS.dirt),
-  PLACEABLE.indexOf(BLOCKS.stone),
-  PLACEABLE.indexOf(BLOCKS.wood),
-  PLACEABLE.indexOf(BLOCKS.sand),
-  PLACEABLE.indexOf(BLOCKS.torch),
-  PLACEABLE.indexOf(BLOCKS.water),
-  PLACEABLE.length,
-  PLACEABLE.length + 1,
-  PLACEABLE.length + 2,
-];
+const DEFAULT_BLOCK_HOTBAR = Array(10).fill(null);
 const DEFAULT_GAME_SETTINGS = {
   movementSpeed: 1,
   dayCycleSpeed: 1,
-  rainEnabled: true,
+  rainEnabled: false,
   rainIntensity: 0.65,
   skyMode: "cycle",
 };
+const INITIAL_SKY_TIME = Math.PI / (2 * 0.018);
 
 export default function MinecraftInspiredWebGame() {
   const [initialWorld] = useState(() => makeWorld());
@@ -615,9 +604,11 @@ export default function MinecraftInspiredWebGame() {
     placedBlocksRef.current = new Set();
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
+    blockHotbarRef.current = [...DEFAULT_BLOCK_HOTBAR];
     inventoryCraftingGridRef.current = Array(4).fill(null);
     workbenchCraftingGridRef.current = Array(9).fill(null);
     cursorStackRef.current = null;
+    settingsRef.current = { ...DEFAULT_GAME_SETTINGS };
     publishInventory();
     publishCraftingState();
     particlesRef.current = [];
@@ -632,6 +623,11 @@ export default function MinecraftInspiredWebGame() {
     rainRef.current = makeRainDrops();
     playerRef.current = createPlayer();
     cameraRef.current = { x: 0, y: 0 };
+    setBlockHotbar([...DEFAULT_BLOCK_HOTBAR]);
+    setSelected(0);
+    setSelectedWall(0);
+    setBuildMode("foreground");
+    setGameSettings({ ...DEFAULT_GAME_SETTINGS });
     setStats(createStats("New world generated."));
     setWorldSeed((value) => value + 1);
   };
@@ -777,7 +773,7 @@ export default function MinecraftInspiredWebGame() {
     let mineCooldown = 0;
     let waterFlowTimer = 0;
     let time = 0;
-    let skyTime = 0;
+    let skyTime = INITIAL_SKY_TIME;
 
     const update = (dt) => {
       time += dt;
