@@ -4,6 +4,7 @@ export const WORLD_H = 84;
 export const VIEW_W = 960;
 export const VIEW_H = 560;
 export const SEA_LEVEL = 55;
+export const BEDROCK_LAYERS = 10;
 
 export const BLOCKS = {
   air: { id: 0, name: "Air", solid: false, color: "transparent" },

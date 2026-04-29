@@ -1,4 +1,11 @@
-import { BLOCKS, SEA_LEVEL, WALLS, WORLD_H, WORLD_W } from "../constants";
+import {
+  BEDROCK_LAYERS,
+  BLOCKS,
+  SEA_LEVEL,
+  WALLS,
+  WORLD_H,
+  WORLD_W,
+} from "../constants";
 import { getBiome } from "./biomes";
 import { addCactus } from "./cactus";
 import { addLake } from "./lakes";
@@ -56,9 +63,11 @@ export function makeWorld(seed = Math.random() * 999999) {
 
   placeStructures(world, walls, heights, biomes, seed);
   addOres(world, seed);
-  for (let x = 0; x < WORLD_W; x++) {
-    world[WORLD_H - 1][x] = BLOCKS.bedrock.id;
-    walls[WORLD_H - 1][x] = WALLS.deepStoneBack.id;
+  for (let y = WORLD_H - BEDROCK_LAYERS; y < WORLD_H; y++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      world[y][x] = BLOCKS.bedrock.id;
+      walls[y][x] = WALLS.deepStoneBack.id;
+    }
   }
 
   return { world, walls, waterLevels, waterSources, biomes };
