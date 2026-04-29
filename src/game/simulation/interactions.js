@@ -1,7 +1,7 @@
 import {
   BLOCK_BY_ID,
   BLOCKS,
-  PLACEABLE,
+  FOREGROUND_ITEMS,
   SEA_LEVEL,
   TILE,
   WALL_BY_ID,
@@ -18,6 +18,11 @@ import {
   torchHasSupport,
   waterHasSupport,
 } from "./support";
+import {
+  getBlockBreakTime,
+  getSelectedMiningTool,
+  resetMiningState,
+} from "./mining";
 
 export function removeUnsupportedTorches({
   world,
@@ -78,6 +83,7 @@ export function mineOrPlace({
   selectedWallRef,
   selectedRef,
   blockHotbarRef,
+  miningRef,
   waterLevelsRef,
   waterSourcesRef,
   placedBlocksRef,
@@ -89,7 +95,17 @@ export function mineOrPlace({
 }) {
   let nextMineCooldown = mineCooldown - dt;
   const mouse = mouseRef.current;
-  if (!mouse.down || nextMineCooldown > 0) return nextMineCooldown;
+  if (!mouse.down) {
+    resetMiningState(miningRef);
+    return nextMineCooldown;
+  }
+
+  const isForegroundMining =
+    buildModeRef.current === "foreground" && mouse.button === 0;
+  if (!isForegroundMining && nextMineCooldown > 0) {
+    resetMiningState(miningRef);
+    return nextMineCooldown;
+  }
 
   const cam = cameraRef.current;
   const worldX = Math.floor((mouse.x + cam.x) / TILE);
@@ -109,6 +125,7 @@ export function mineOrPlace({
     worldX >= WORLD_W ||
     worldY >= WORLD_H
   ) {
+    resetMiningState(miningRef);
     setStats((current) => ({ ...current, message: "Too far away." }));
     return 0.18;
   }
@@ -118,6 +135,7 @@ export function mineOrPlace({
   const ladders = laddersRef.current;
 
   if (buildModeRef.current === "background") {
+    resetMiningState(miningRef);
     const wall = WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall;
 
     if (mouse.button === 0) {
@@ -217,6 +235,7 @@ export function mineOrPlace({
 
   if (mouse.button === 0 && currentBlock.id !== BLOCKS.air.id) {
     if (currentBlock.id === BLOCKS.water.id) {
+      resetMiningState(miningRef);
       world[worldY][worldX] = BLOCKS.air.id;
       waterLevelsRef.current[worldY][worldX] = -1;
       waterSourcesRef.current.delete(blockKey);
@@ -236,6 +255,26 @@ export function mineOrPlace({
       }));
       stepWaterFlow();
       return 0.12;
+    }
+
+    const selectedItem =
+      FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+    const tool = getSelectedMiningTool(selectedItem);
+    const requiredTime = getBlockBreakTime(currentBlock, tool);
+    const mining = miningRef.current;
+
+    if (mining.targetKey !== blockKey || mining.blockId !== currentBlock.id) {
+      mining.targetKey = blockKey;
+      mining.blockId = currentBlock.id;
+      mining.progress = 0;
+      mining.requiredTime = requiredTime;
+    }
+
+    mining.progress += dt;
+    mining.requiredTime = requiredTime;
+
+    if (mining.progress < requiredTime) {
+      return 0;
     }
 
     world[worldY][worldX] = BLOCKS.air.id;
@@ -280,18 +319,31 @@ export function mineOrPlace({
           ? `Mined ${currentBlock.name}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
           : `Mined ${currentBlock.name}.`,
     }));
+    resetMiningState(miningRef);
     nextMineCooldown =
       currentBlock.id === BLOCKS.stone.id || currentBlock.id === BLOCKS.ore.id
-        ? 0.26
-        : 0.14;
+        ? 0.08
+        : 0.04;
+  } else if (mouse.button === 0) {
+    resetMiningState(miningRef);
   }
 
   if (mouse.button === 2) {
-    const placeBlock = PLACEABLE[blockHotbarRef.current[selectedRef.current]];
+    resetMiningState(miningRef);
+    const placeBlock =
+      FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
     if (!placeBlock) {
       setStats((current) => ({
         ...current,
         message: "That hotbar slot is empty.",
+      }));
+      return 0.14;
+    }
+
+    if (placeBlock.kind === "tool") {
+      setStats((current) => ({
+        ...current,
+        message: `${placeBlock.name}s are for mining, not placing.`,
       }));
       return 0.14;
     }

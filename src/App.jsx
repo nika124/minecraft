@@ -7,6 +7,7 @@ import SettingsOverlay from "./components/SettingsOverlay";
 import {
   BLOCK_BY_ID,
   BLOCKS,
+  FOREGROUND_ITEMS,
   PLACEABLE,
   TILE,
   VIEW_H,
@@ -63,10 +64,18 @@ void GameStage;
 void InventoryPanel;
 void SettingsOverlay;
 
-const HOTBAR_SLOT_COUNT = 10;
-const DEFAULT_BLOCK_HOTBAR = PLACEABLE.slice(0, HOTBAR_SLOT_COUNT).map(
-  (_, index) => index,
-);
+const DEFAULT_BLOCK_HOTBAR = [
+  PLACEABLE.indexOf(BLOCKS.grass),
+  PLACEABLE.indexOf(BLOCKS.dirt),
+  PLACEABLE.indexOf(BLOCKS.stone),
+  PLACEABLE.indexOf(BLOCKS.wood),
+  PLACEABLE.indexOf(BLOCKS.sand),
+  PLACEABLE.indexOf(BLOCKS.torch),
+  PLACEABLE.indexOf(BLOCKS.water),
+  PLACEABLE.length,
+  PLACEABLE.length + 1,
+  PLACEABLE.length + 2,
+];
 const DEFAULT_GAME_SETTINGS = {
   movementSpeed: 1,
   dayCycleSpeed: 1,
@@ -96,6 +105,12 @@ export default function MinecraftInspiredWebGame() {
   const placedBlocksRef = useRef(new Set());
   const anchoredLaddersRef = useRef(new Set());
   const particlesRef = useRef([]);
+  const miningRef = useRef({
+    targetKey: null,
+    blockId: null,
+    progress: 0,
+    requiredTime: 0,
+  });
   const cloudsRef = useRef(makeClouds());
   const rainRef = useRef(makeRainDrops());
   const playerRef = useRef(createPlayer());
@@ -177,7 +192,7 @@ export default function MinecraftInspiredWebGame() {
 
   const assignBlockToHotbar = useCallback(
     (placeableIndex, slotIndex) => {
-      const item = PLACEABLE[placeableIndex];
+      const item = FOREGROUND_ITEMS[placeableIndex];
       if (!item) return;
 
       setBlockHotbar((current) =>
@@ -197,7 +212,7 @@ export default function MinecraftInspiredWebGame() {
   );
 
   const clearHotbarSlot = useCallback((slotIndex) => {
-    const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
+    const item = FOREGROUND_ITEMS[blockHotbarRef.current[slotIndex]];
     setBlockHotbar((current) =>
       current.map((value, index) => (index === slotIndex ? null : value)),
     );
@@ -233,7 +248,7 @@ export default function MinecraftInspiredWebGame() {
         return;
       }
 
-      const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
+      const item = FOREGROUND_ITEMS[blockHotbarRef.current[slotIndex]];
       setSelected(slotIndex);
       if (item) showSelectionHint(item, "foreground");
     },
@@ -242,7 +257,7 @@ export default function MinecraftInspiredWebGame() {
 
   const chooseInventoryBlock = useCallback(
     (placeableIndex) => {
-      const item = PLACEABLE[placeableIndex];
+      const item = FOREGROUND_ITEMS[placeableIndex];
       if (!item) return;
 
       setCarriedPlaceableIndex(placeableIndex);
@@ -308,6 +323,12 @@ export default function MinecraftInspiredWebGame() {
     placedBlocksRef.current = new Set();
     anchoredLaddersRef.current = new Set();
     particlesRef.current = [];
+    miningRef.current = {
+      targetKey: null,
+      blockId: null,
+      progress: 0,
+      requiredTime: 0,
+    };
     cloudsRef.current = makeClouds();
     rainRef.current = makeRainDrops();
     playerRef.current = createPlayer();
@@ -497,6 +518,7 @@ export default function MinecraftInspiredWebGame() {
         selectedWallRef,
         selectedRef,
         blockHotbarRef,
+        miningRef,
         waterLevelsRef,
         waterSourcesRef,
         placedBlocksRef,
@@ -519,7 +541,13 @@ export default function MinecraftInspiredWebGame() {
       const heldItem =
         buildModeRef.current === "background"
           ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
-          : PLACEABLE[blockHotbarRef.current[selectedRef.current]];
+          : FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+      const heldItemType =
+        buildModeRef.current === "background"
+          ? "wall"
+          : heldItem?.kind === "tool"
+            ? "tool"
+            : "block";
 
       ctx.clearRect(0, 0, VIEW_W, VIEW_H);
       uiCtx.clearRect(0, 0, VIEW_W, VIEW_H);
@@ -617,6 +645,30 @@ export default function MinecraftInspiredWebGame() {
             TILE - 6,
             TILE - 6,
           );
+        } else {
+          const mining = miningRef.current;
+          const miningTargetKey = `${tx},${ty}`;
+          const miningProgress =
+            mining.targetKey === miningTargetKey && mining.requiredTime > 0
+              ? Math.min(1, mining.progress / mining.requiredTime)
+              : 0;
+
+          if (miningProgress > 0) {
+            const x = tx * TILE - cam.x;
+            const y = ty * TILE - cam.y;
+            ctx.fillStyle = `rgba(255,255,255,${0.08 + miningProgress * 0.16})`;
+            ctx.fillRect(x + 3, y + 3, TILE - 6, TILE - 6);
+            ctx.strokeStyle = "rgba(15,23,42,.72)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x + 6, y + 7);
+            ctx.lineTo(x + 12 + miningProgress * 12, y + 13);
+            ctx.moveTo(x + TILE - 7, y + 8);
+            ctx.lineTo(x + TILE - 15 - miningProgress * 10, y + 20);
+            ctx.moveTo(x + 10, y + TILE - 7);
+            ctx.lineTo(x + 19 + miningProgress * 8, y + TILE - 18);
+            ctx.stroke();
+          }
         }
       }
 
@@ -630,7 +682,7 @@ export default function MinecraftInspiredWebGame() {
         player.facing,
         Boolean(keysRef.current.shift && Math.abs(player.vx) > 2.2),
         heldItem,
-        buildModeRef.current === "background" ? "wall" : "block",
+        heldItemType,
       );
 
       const playerScreenX = player.x - cam.x;

@@ -1,8 +1,21 @@
-import { BLOCKS, PLACEABLE, WALL_PLACEABLE } from "../game/constants";
-import { getBlockTexture, getWallTexture } from "../game/textures";
+import {
+  BLOCKS,
+  FOREGROUND_ITEMS,
+  WALL_PLACEABLE,
+} from "../game/constants";
+import {
+  getBlockTexture,
+  getItemTexture,
+  getWallTexture,
+} from "../game/textures";
 
 function renderTextureSwatch(item, type) {
-  const texture = type === "wall" ? getWallTexture(item) : getBlockTexture(item);
+  const texture =
+    type === "wall"
+      ? getWallTexture(item)
+      : item.kind === "tool"
+        ? getItemTexture(item)
+        : getBlockTexture(item);
   return (
     <span
       className="swatch texture-swatch"
@@ -28,8 +41,10 @@ export default function InventoryPanel({
   carriedPlaceableIndex,
   onClose,
 }) {
-  const carriedBlock =
-    carriedPlaceableIndex === null ? null : PLACEABLE[carriedPlaceableIndex];
+  const carriedItem =
+    carriedPlaceableIndex === null
+      ? null
+      : FOREGROUND_ITEMS[carriedPlaceableIndex];
   const setDragData = (event, value) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", value);
@@ -57,8 +72,8 @@ export default function InventoryPanel({
           <div>
             <span>Inventory</span>
             <small>
-              {carriedBlock
-                ? `Holding ${carriedBlock.name}: click a hotbar slot or press 1-0.`
+              {carriedItem
+                ? `Holding ${carriedItem.name}: click a hotbar slot or press 1-0.`
                 : "Pick a normal item, then drop it into the hotbar."}
             </small>
           </div>
@@ -95,13 +110,13 @@ export default function InventoryPanel({
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleInventoryDrop}
           >
-            {PLACEABLE.map((block, index) => {
+            {FOREGROUND_ITEMS.map((item, index) => {
               const equippedSlot = blockHotbar.indexOf(index);
               const isCarried = carriedPlaceableIndex === index;
               return (
                 <button
                   type="button"
-                  key={block.id}
+                  key={item.id}
                   draggable
                   onClick={() => onChooseInventoryBlock(index)}
                   onDragStart={(event) => {
@@ -110,15 +125,17 @@ export default function InventoryPanel({
                   }}
                   className={`palette-item ${isCarried ? "is-carried" : ""}`}
                 >
-                  {renderTextureSwatch(block, "block")}
+                  {renderTextureSwatch(item, "block")}
                   <span className="palette-copy">
-                    <span>{block.name}</span>
+                    <span>{item.name}</span>
                     <small>
                       {equippedSlot !== -1
                         ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
-                        : block.id === BLOCKS.torch.id
+                        : item.kind === "tool"
+                          ? "Mining tool"
+                          : item.id === BLOCKS.torch.id
                           ? "Light source"
-                          : block.id === BLOCKS.water.id
+                          : item.id === BLOCKS.water.id
                             ? "Flowing liquid"
                             : "Pick up"}
                     </small>
@@ -131,31 +148,31 @@ export default function InventoryPanel({
           <div className="inventory-section-heading hotbar-heading">
             <span>Hotbar</span>
             <small>
-              {carriedBlock
+              {carriedItem
                 ? "Click a slot or press 1-0 to place the held item."
                 : "Drag a hotbar item upward to remove it."}
             </small>
           </div>
           <div className="hotbar-editor">
-            {blockHotbar.map((placeableIndex, slotIndex) => {
-              const block = PLACEABLE[placeableIndex];
+            {blockHotbar.map((foregroundItemIndex, slotIndex) => {
+              const item = FOREGROUND_ITEMS[foregroundItemIndex];
               return (
                 <button
                   type="button"
-                  key={`${slotIndex}-${block?.id ?? "empty"}`}
-                  draggable={Boolean(block)}
+                  key={`${slotIndex}-${item?.id ?? "empty"}`}
+                  draggable={Boolean(item)}
                   onClick={() => onSelectHotbarSlot(slotIndex)}
                   onDragStart={(event) => {
-                    if (!block) return;
+                    if (!item) return;
                     setDragData(event, `hotbar:${slotIndex}`);
                   }}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => handleHotbarDrop(event, slotIndex)}
-                  className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!block ? "is-empty" : ""}`}
+                  className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!item ? "is-empty" : ""}`}
                 >
                   <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
-                  {block ? renderTextureSwatch(block, "block") : <span className="empty-slot" />}
-                  <span>{block?.name ?? "Empty"}</span>
+                  {item ? renderTextureSwatch(item, "block") : <span className="empty-slot" />}
+                  <span>{item?.name ?? "Empty"}</span>
                 </button>
               );
             })}

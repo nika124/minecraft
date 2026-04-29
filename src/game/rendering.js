@@ -1,5 +1,5 @@
 import { BLOCKS, TILE, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "./constants";
-import { getBlockTexture, getWallTexture } from "./textures";
+import { getBlockTexture, getItemTexture, getWallTexture } from "./textures";
 import { clamp } from "./world";
 
 export function drawWall(ctx, wall, x, y, size) {
@@ -140,9 +140,14 @@ function drawHeldItem(ctx, item, itemType, armAngle) {
   if (!item) return;
 
   const texture =
-    itemType === "wall" ? getWallTexture(item) : getBlockTexture(item);
-  const size = item?.id === BLOCKS.torch.id ? 12 : 14;
-  const baseRotation = item?.id === BLOCKS.torch.id ? -0.2 : -0.08;
+    itemType === "wall"
+      ? getWallTexture(item)
+      : itemType === "tool"
+        ? getItemTexture(item)
+        : getBlockTexture(item);
+  const size = itemType === "tool" ? 18 : item?.id === BLOCKS.torch.id ? 12 : 14;
+  const baseRotation =
+    itemType === "tool" ? -0.28 : item?.id === BLOCKS.torch.id ? -0.2 : -0.08;
 
   ctx.save();
   ctx.translate(30.5, 47);

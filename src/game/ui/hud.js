@@ -1,5 +1,5 @@
-import { PLACEABLE, VIEW_H, VIEW_W, WALL_PLACEABLE } from "../constants";
-import { getBlockTexture, getWallTexture } from "../textures";
+import { FOREGROUND_ITEMS, VIEW_H, VIEW_W, WALL_PLACEABLE } from "../constants";
+import { getBlockTexture, getItemTexture, getWallTexture } from "../textures";
 import { clamp } from "../world";
 
 function drawPanel(ctx, x, y, w, h, fill = "rgba(2,6,23,.78)") {
@@ -40,7 +40,7 @@ export function drawHotbar(ctx, state) {
   const items =
     buildMode === "background"
       ? WALL_PLACEABLE
-      : blockHotbar.map((index) => PLACEABLE[index]);
+      : blockHotbar.map((index) => FOREGROUND_ITEMS[index]);
   const selectedIndex = buildMode === "background" ? selectedWall : selected;
   const slot = 48;
   const gap = 6;
@@ -70,7 +70,11 @@ export function drawHotbar(ctx, state) {
 
     if (item) {
       const texture =
-        buildMode === "background" ? getWallTexture(item) : getBlockTexture(item);
+        buildMode === "background"
+          ? getWallTexture(item)
+          : item.kind === "tool"
+            ? getItemTexture(item)
+            : getBlockTexture(item);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(texture, x + 11, y + 10, 26, 26);
