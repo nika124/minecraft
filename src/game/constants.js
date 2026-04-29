@@ -96,6 +96,14 @@ export const BLOCKS = {
     color: "rgba(45, 145, 235, .72)",
     hardness: 0,
   },
+  bedrock: {
+    id: 12,
+    name: "Bedrock",
+    solid: true,
+    color: "#20242d",
+    hardness: Infinity,
+    unbreakable: true,
+  },
 };
 
 export const WALLS = {

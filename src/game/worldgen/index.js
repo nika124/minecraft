@@ -56,6 +56,10 @@ export function makeWorld(seed = Math.random() * 999999) {
 
   placeStructures(world, walls, heights, biomes, seed);
   addOres(world, seed);
+  for (let x = 0; x < WORLD_W; x++) {
+    world[WORLD_H - 1][x] = BLOCKS.bedrock.id;
+    walls[WORLD_H - 1][x] = WALLS.deepStoneBack.id;
+  }
 
   return { world, walls, waterLevels, waterSources, biomes };
 }

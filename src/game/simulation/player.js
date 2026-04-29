@@ -170,7 +170,7 @@ export function updatePlayerAndCamera({
     player.onGround = true;
   }
 
-  if (player.y > WORLD_H * TILE - 100) {
+  if (player.y > WORLD_H * TILE) {
     playerRef.current = createPlayer();
     setStats((current) => ({
       ...current,

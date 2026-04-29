@@ -234,6 +234,15 @@ export function mineOrPlace({
   const blockKey = `${worldX},${worldY}`;
 
   if (mouse.button === 0 && currentBlock.id !== BLOCKS.air.id) {
+    if (currentBlock.unbreakable) {
+      resetMiningState(miningRef);
+      setStats((current) => ({
+        ...current,
+        message: `${currentBlock.name} cannot be broken.`,
+      }));
+      return 0.18;
+    }
+
     if (currentBlock.id === BLOCKS.water.id) {
       resetMiningState(miningRef);
       world[worldY][worldX] = BLOCKS.air.id;
