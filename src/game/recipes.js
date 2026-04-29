@@ -1,4 +1,8 @@
 export const RECIPES = [
+  // =========================
+  // 2x2 INVENTORY CRAFTING
+  // =========================
+
   {
     id: "planks-from-wood",
     name: "Planks",
@@ -44,6 +48,52 @@ export const RECIPES = [
     output: "workbench",
     amount: 1,
   },
+
+  // Simple block conversions
+  {
+    id: "brick-from-stone",
+    name: "Brick",
+    size: "2x2",
+    pattern: ["SS", "SS"],
+    key: { S: "stone" },
+    output: "brick",
+    amount: 4,
+  },
+  {
+    id: "glass-from-sand",
+    name: "Glass",
+    size: "2x2",
+    pattern: ["SS", "SS"],
+    key: { S: "sand" },
+    output: "glass",
+    amount: 1,
+  },
+
+  // Basic background walls without workbench
+  {
+    id: "simple-wood-wall",
+    name: "Wood Wall",
+    size: "2x2",
+    pattern: ["PP", "PP"],
+    key: { P: "planks" },
+    output: "woodWall",
+    amount: 4,
+  },
+  {
+    id: "simple-stone-wall",
+    name: "Stone Wall",
+    size: "2x2",
+    pattern: ["SS", "SS"],
+    key: { S: "stone" },
+    output: "stoneWall",
+    amount: 4,
+  },
+
+  // =========================
+  // 3x3 WORKBENCH CRAFTING
+  // =========================
+
+  // Walls
   {
     id: "wood-wall",
     name: "Wood Wall",
@@ -51,7 +101,7 @@ export const RECIPES = [
     pattern: ["PPP", "PPP"],
     key: { P: "planks" },
     output: "woodWall",
-    amount: 6,
+    amount: 8,
     station: "workbench",
   },
   {
@@ -61,7 +111,7 @@ export const RECIPES = [
     pattern: ["SSS", "SSS"],
     key: { S: "stone" },
     output: "stoneWall",
-    amount: 6,
+    amount: 8,
     station: "workbench",
   },
   {
@@ -71,7 +121,7 @@ export const RECIPES = [
     pattern: ["BBB", "BBB"],
     key: { B: "brick" },
     output: "brickWall",
-    amount: 6,
+    amount: 8,
     station: "workbench",
   },
   {
@@ -81,9 +131,33 @@ export const RECIPES = [
     pattern: ["GGG", "GGG"],
     key: { G: "glass" },
     output: "glassWall",
-    amount: 6,
+    amount: 8,
     station: "workbench",
   },
+
+  // Building blocks
+  {
+    id: "brick-block-from-stone",
+    name: "Brick",
+    size: "3x3",
+    pattern: ["SS", "SS"],
+    key: { S: "stone" },
+    output: "brick",
+    amount: 4,
+    station: "workbench",
+  },
+  {
+    id: "glass-block-from-sand",
+    name: "Glass",
+    size: "3x3",
+    pattern: ["SSS", "SSS", "SSS"],
+    key: { S: "sand" },
+    output: "glass",
+    amount: 3,
+    station: "workbench",
+  },
+
+  // Utility
   {
     id: "ladder",
     name: "Ladder",
@@ -94,6 +168,18 @@ export const RECIPES = [
     amount: 3,
     station: "workbench",
   },
+  {
+    id: "more-torches-from-coal",
+    name: "Torch",
+    size: "3x3",
+    pattern: [" C ", " S "],
+    key: { C: "coal", S: "sticks" },
+    output: "torch",
+    amount: 6,
+    station: "workbench",
+  },
+
+  // Wooden tools
   {
     id: "wooden-pickaxe",
     name: "Wooden Pickaxe",
@@ -125,6 +211,8 @@ export const RECIPES = [
     amount: 1,
     station: "workbench",
   },
+
+  // Stone tools
   {
     id: "stone-pickaxe",
     name: "Stone Pickaxe",

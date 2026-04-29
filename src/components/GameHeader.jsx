@@ -8,7 +8,7 @@ export default function GameHeader({
     <header className="game-header">
       <div className="game-title">
         <p className="eyebrow">Block sandbox</p>
-        <h1>CraftBlock Explorer</h1>
+        <h1>Tericraft</h1>
         <p>
           Mine, build, and explore a procedural voxel world with animated
           terrain, particles, and a background wall layer for houses.
