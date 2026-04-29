@@ -216,6 +216,23 @@ function drawBedrock(ctx) {
   drawBevel(ctx, "rgba(255,255,255,.06)", "rgba(0,0,0,.48)");
 }
 
+function drawWorkbench(ctx) {
+  fillBase(ctx, "#9a6339");
+  ctx.fillStyle = "#c08445";
+  ctx.fillRect(2, 2, TILE - 4, 9);
+  ctx.fillStyle = "#6f3f1f";
+  ctx.fillRect(0, 10, TILE, 3);
+  ctx.fillRect(6, 13, 5, 17);
+  ctx.fillRect(21, 13, 5, 17);
+  ctx.fillStyle = "#7c3f1d";
+  ctx.fillRect(4, 16, 24, 4);
+  ctx.fillStyle = "#d69b5b";
+  ctx.fillRect(4, 4, 9, 3);
+  ctx.fillRect(18, 5, 7, 2);
+  speckles(ctx, ["#5f3820", "#b87945", "#d69b5b"], 20, 150, 1, 2);
+  drawBevel(ctx, "rgba(255,220,160,.12)", "rgba(0,0,0,.3)");
+}
+
 const BLOCK_DRAWERS = {
   [BLOCKS.grass.id]: drawGrass,
   [BLOCKS.dirt.id]: drawDirt,
@@ -229,6 +246,7 @@ const BLOCK_DRAWERS = {
   [BLOCKS.torch.id]: drawTorch,
   [BLOCKS.water.id]: drawWater,
   [BLOCKS.bedrock.id]: drawBedrock,
+  [BLOCKS.workbench.id]: drawWorkbench,
 };
 
 export function getBlockTexture(block) {

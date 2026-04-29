@@ -10,6 +10,9 @@ import {
   WORLD_H,
   WORLD_W,
 } from "../constants";
+import { getBlockDrops, getWallDrops, formatDrops } from "../drops";
+import { addDrops, getItemCount, removeItem } from "../inventory";
+import { getForegroundItemId, getWallItemId } from "../items";
 import { updateSkyCoverageColumn } from "../rendering";
 import { emitParticles } from "../world";
 import {
@@ -31,6 +34,8 @@ export function removeUnsupportedTorches({
   y,
   placedBlocksRef,
   particlesRef,
+  inventoryRef,
+  onInventoryChange,
 }) {
   const neighbors = [
     [x, y],
@@ -55,10 +60,54 @@ export function removeUnsupportedTorches({
       BLOCKS.torch.color,
       5,
     );
+    if (addDrops(inventoryRef, getBlockDrops(BLOCKS.torch))) {
+      onInventoryChange?.();
+    }
     removed++;
   }
 
   return removed;
+}
+
+export function removeUnsupportedLadders({
+  walls,
+  ladders,
+  anchoredLaddersRef,
+  particlesRef,
+  inventoryRef,
+  onInventoryChange,
+}) {
+  const removed = [];
+
+  for (let y = 0; y < WORLD_H; y++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      if (!ladders[y][x]) continue;
+      if (ladderHasAnchor(walls, ladders, x, y)) continue;
+      removed.push([x, y]);
+    }
+  }
+
+  for (const [x, y] of removed) {
+    ladders[y][x] = false;
+    anchoredLaddersRef.current.delete(`${x},${y}`);
+    emitParticles(
+      particlesRef.current,
+      x * TILE + TILE / 2,
+      y * TILE + TILE / 2,
+      WALLS.ladder.color,
+      5,
+    );
+  }
+
+  if (removed.length > 0) {
+    addDrops(
+      inventoryRef,
+      removed.flatMap(() => getWallDrops(WALLS.ladder)),
+    );
+    onInventoryChange?.();
+  }
+
+  return removed.length;
 }
 
 function naturalBackdropFor(world, x, y) {
@@ -90,6 +139,8 @@ export function mineOrPlace({
   anchoredLaddersRef,
   particlesRef,
   skyCoverageRef,
+  inventoryRef,
+  onInventoryChange,
   setStats,
   stepWaterFlow,
 }) {
@@ -142,6 +193,8 @@ export function mineOrPlace({
       if (wall.id === WALLS.ladder.id && ladders[worldY][worldX]) {
         ladders[worldY][worldX] = false;
         anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
+        const drops = getWallDrops(WALLS.ladder);
+        if (addDrops(inventoryRef, drops)) onInventoryChange?.();
         emitParticles(
           particlesRef.current,
           worldX * TILE + TILE / 2,
@@ -151,7 +204,7 @@ export function mineOrPlace({
         );
         setStats((current) => ({
           ...current,
-          message: "Removed Ladder.",
+          message: `Removed Ladder${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
         }));
       } else if (walls[worldY][worldX] !== WALLS.empty.id) {
         const removedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
@@ -165,7 +218,19 @@ export function mineOrPlace({
           y: worldY,
           placedBlocksRef,
           particlesRef,
+          inventoryRef,
+          onInventoryChange,
         });
+        const laddersRemoved = removeUnsupportedLadders({
+          walls,
+          ladders,
+          anchoredLaddersRef,
+          particlesRef,
+          inventoryRef,
+          onInventoryChange,
+        });
+        const drops = getWallDrops(removedWall);
+        if (addDrops(inventoryRef, drops)) onInventoryChange?.();
         emitParticles(
           particlesRef.current,
           worldX * TILE + TILE / 2,
@@ -176,18 +241,29 @@ export function mineOrPlace({
         setStats((current) => ({
           ...current,
           message:
-            torchesRemoved > 0
-              ? `Removed ${removedWall.name}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
-              : `Removed ${removedWall.name}.`,
+            laddersRemoved > 0
+              ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${laddersRemoved} ladder${laddersRemoved > 1 ? "s" : ""} fell off.`
+              : torchesRemoved > 0
+                ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
+                : `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
         }));
       }
       nextMineCooldown = 0.1;
     }
 
     if (mouse.button === 2) {
+      const wallItemId = getWallItemId(wall);
       const canPlaceWall =
         wall.id !== WALLS.ladder.id ||
         ladderHasAnchor(walls, ladders, worldX, worldY);
+
+      if (!wallItemId || getItemCount(inventoryRef, wallItemId) <= 0) {
+        setStats((current) => ({
+          ...current,
+          message: `You do not have ${wall.name}.`,
+        }));
+        return 0.12;
+      }
 
       if (!canPlaceWall) {
         setStats((current) => ({
@@ -207,11 +283,15 @@ export function mineOrPlace({
           anchoredLaddersRef.current.add(`${worldX},${worldY}`);
         }
       } else if (walls[worldY][worldX] !== wall.id) {
+        const replacedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
+        addDrops(inventoryRef, getWallDrops(replacedWall));
         walls[worldY][worldX] = wall.id;
         anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
       } else {
         return 0.08;
       }
+      removeItem(inventoryRef, wallItemId, 1);
+      onInventoryChange?.();
       emitParticles(
         particlesRef.current,
         worldX * TILE + TILE / 2,
@@ -260,7 +340,7 @@ export function mineOrPlace({
       setStats((current) => ({
         ...current,
         blocksMined: current.blocksMined + 1,
-        message: "Picked up Water.",
+        message: "Removed Water.",
       }));
       stepWaterFlow();
       return 0.12;
@@ -268,8 +348,22 @@ export function mineOrPlace({
 
     const selectedItem =
       FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
-    const tool = getSelectedMiningTool(selectedItem);
+    const selectedItemId = getForegroundItemId(selectedItem);
+    const hasSelectedTool =
+      selectedItem?.kind === "tool" &&
+      getItemCount(inventoryRef, selectedItemId) > 0;
+    const tool = getSelectedMiningTool(hasSelectedTool ? selectedItem : null);
     const requiredTime = getBlockBreakTime(currentBlock, tool);
+
+    if (!Number.isFinite(requiredTime)) {
+      resetMiningState(miningRef);
+      setStats((current) => ({
+        ...current,
+        message: `${currentBlock.name} requires a ${currentBlock.requiresTool}.`,
+      }));
+      return 0.18;
+    }
+
     const mining = miningRef.current;
 
     if (mining.targetKey !== blockKey || mining.blockId !== currentBlock.id) {
@@ -295,7 +389,11 @@ export function mineOrPlace({
       y: worldY,
       placedBlocksRef,
       particlesRef,
+      inventoryRef,
+      onInventoryChange,
     });
+    const drops = getBlockDrops(currentBlock);
+    if (addDrops(inventoryRef, drops)) onInventoryChange?.();
     const wasPlayerPlaced = placedBlocksRef.current.delete(blockKey);
     const leavesNaturalAir =
       currentBlock.id === BLOCKS.wood.id ||
@@ -325,8 +423,8 @@ export function mineOrPlace({
       blocksMined: current.blocksMined + 1,
       message:
         torchesRemoved > 0
-          ? `Mined ${currentBlock.name}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
-          : `Mined ${currentBlock.name}.`,
+          ? `Mined ${currentBlock.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
+          : `Mined ${currentBlock.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
     }));
     resetMiningState(miningRef);
     nextMineCooldown =
@@ -353,6 +451,14 @@ export function mineOrPlace({
       setStats((current) => ({
         ...current,
         message: `${placeBlock.name}s are for mining, not placing.`,
+      }));
+      return 0.14;
+    }
+    const placeItemId = getForegroundItemId(placeBlock);
+    if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
+      setStats((current) => ({
+        ...current,
+        message: `You do not have ${placeBlock.name}.`,
       }));
       return 0.14;
     }
@@ -389,6 +495,8 @@ export function mineOrPlace({
         waterSourcesRef.current.delete(blockKey);
         placedBlocksRef.current.delete(blockKey);
       }
+      removeItem(inventoryRef, placeItemId, 1);
+      onInventoryChange?.();
       world[worldY][worldX] = placeBlock.id;
       if (placeBlock.id === BLOCKS.water.id) {
         waterLevelsRef.current[worldY][worldX] = 0;

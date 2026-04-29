@@ -1,8 +1,18 @@
 import {
-  BLOCKS,
+  BLOCK_BY_ID,
   FOREGROUND_ITEMS,
+  WALL_BY_ID,
   WALL_PLACEABLE,
 } from "../game/constants";
+import { canCraft } from "../game/crafting";
+import { getItemCount } from "../game/inventory";
+import {
+  ITEM_LIST,
+  ITEMS,
+  getForegroundIndexForItem,
+  getForegroundItemId,
+  getWallItemId,
+} from "../game/items";
 import {
   getBlockTexture,
   getItemTexture,
@@ -25,17 +35,51 @@ function renderTextureSwatch(item, type) {
   );
 }
 
+function renderInventorySwatch(item) {
+  if (item.blockId !== undefined) {
+    return renderTextureSwatch(BLOCK_BY_ID[item.blockId], "block");
+  }
+
+  if (item.wallId !== undefined) {
+    return renderTextureSwatch(WALL_BY_ID[item.wallId], "wall");
+  }
+
+  if (item.category === "tool") {
+    const tool = FOREGROUND_ITEMS.find((foregroundItem) => foregroundItem.id === item.id);
+    if (tool) return renderTextureSwatch(tool, "block");
+  }
+
+  return (
+    <span
+      className="swatch texture-swatch inventory-color-swatch"
+      style={{ backgroundColor: item.color ?? "#8b8b8b" }}
+      aria-hidden="true"
+    >
+      {item.name.slice(0, 2)}
+    </span>
+  );
+}
+
+function formatIngredients(ingredients) {
+  return Object.entries(ingredients)
+    .map(([itemId, amount]) => `${amount} ${ITEMS[itemId]?.name ?? itemId}`)
+    .join(" + ");
+}
+
 export default function InventoryPanel({
   buildMode,
   selected,
   selectedWall,
   blockHotbar,
+  inventory,
+  recipes,
   onSelectHotbarSlot,
   onChooseInventoryBlock,
   onAssignInventoryBlock,
   onClearHotbarSlot,
   onSwapHotbarSlots,
   onSelectWall,
+  onCraftRecipe,
   onSetForegroundMode,
   onSetBackgroundMode,
   carriedPlaceableIndex,
@@ -102,42 +146,55 @@ export default function InventoryPanel({
       {buildMode === "foreground" ? (
         <>
           <div className="inventory-section-heading">
-            <span>Normal items</span>
-            <small>Click or drag an item into a hotbar box.</small>
+            <span>Inventory items</span>
+            <small>Items with counts can be assigned to the hotbar.</small>
           </div>
           <div
             className="palette-grid inventory-items-grid"
             onDragOver={(event) => event.preventDefault()}
             onDrop={handleInventoryDrop}
           >
-            {FOREGROUND_ITEMS.map((item, index) => {
-              const equippedSlot = blockHotbar.indexOf(index);
-              const isCarried = carriedPlaceableIndex === index;
+            {ITEM_LIST.map((item) => {
+              const count = getItemCount(inventory, item.id);
+              const foregroundIndex = getForegroundIndexForItem(item.id);
+              const isAssignable = foregroundIndex !== null;
+              const equippedSlot = isAssignable
+                ? blockHotbar.indexOf(foregroundIndex)
+                : -1;
+              const isCarried = carriedPlaceableIndex === foregroundIndex;
+              const disabled = !isAssignable || count <= 0;
               return (
                 <button
                   type="button"
                   key={item.id}
-                  draggable
-                  onClick={() => onChooseInventoryBlock(index)}
-                  onDragStart={(event) => {
-                    onChooseInventoryBlock(index);
-                    setDragData(event, `inventory:${index}`);
+                  draggable={!disabled}
+                  disabled={disabled}
+                  onClick={() => {
+                    if (isAssignable) onChooseInventoryBlock(foregroundIndex);
                   }}
-                  className={`palette-item ${isCarried ? "is-carried" : ""}`}
+                  onDragStart={(event) => {
+                    if (disabled) return;
+                    onChooseInventoryBlock(foregroundIndex);
+                    setDragData(event, `inventory:${foregroundIndex}`);
+                  }}
+                  className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
                 >
-                  {renderTextureSwatch(item, "block")}
+                  {renderInventorySwatch(item)}
+                  <span className="item-count">{count}</span>
                   <span className="palette-copy">
                     <span>{item.name}</span>
                     <small>
                       {equippedSlot !== -1
                         ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
-                        : item.kind === "tool"
+                        : item.category === "tool"
                           ? "Mining tool"
-                          : item.id === BLOCKS.torch.id
+                          : item.id === "torch"
                           ? "Light source"
-                          : item.id === BLOCKS.water.id
+                          : item.id === "water"
                             ? "Flowing liquid"
-                            : "Pick up"}
+                            : isAssignable
+                              ? "Can equip"
+                              : "Crafting item"}
                     </small>
                   </span>
                 </button>
@@ -156,6 +213,8 @@ export default function InventoryPanel({
           <div className="hotbar-editor">
             {blockHotbar.map((foregroundItemIndex, slotIndex) => {
               const item = FOREGROUND_ITEMS[foregroundItemIndex];
+              const itemId = getForegroundItemId(item);
+              const count = itemId ? getItemCount(inventory, itemId) : 0;
               return (
                 <button
                   type="button"
@@ -172,6 +231,7 @@ export default function InventoryPanel({
                 >
                   <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
                   {item ? renderTextureSwatch(item, "block") : <span className="empty-slot" />}
+                  {item ? <span className="item-count hotbar-count">{count}</span> : null}
                   <span>{item?.name ?? "Empty"}</span>
                 </button>
               );
@@ -185,22 +245,54 @@ export default function InventoryPanel({
             <small>Pick the wall used while background mode is active.</small>
           </div>
           <div className="palette-grid">
-            {WALL_PLACEABLE.map((wall, index) => (
-              <button
-                key={wall.id}
-                onClick={() => onSelectWall(index)}
-                className={`palette-item is-wall ${selectedWall === index ? "is-selected" : ""}`}
-              >
-                {renderTextureSwatch(wall, "wall")}
-                <span className="palette-copy">
-                  <span>{index + 1}. {wall.name}</span>
-                  <small>Background wall</small>
-                </span>
-              </button>
-            ))}
+            {WALL_PLACEABLE.map((wall, index) => {
+              const count = getItemCount(inventory, getWallItemId(wall));
+              return (
+                <button
+                  key={wall.id}
+                  onClick={() => onSelectWall(index)}
+                  className={`palette-item is-wall ${selectedWall === index ? "is-selected" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
+                >
+                  {renderTextureSwatch(wall, "wall")}
+                  <span className="item-count">{count}</span>
+                  <span className="palette-copy">
+                    <span>{index + 1}. {wall.name}</span>
+                    <small>Background wall</small>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}
+
+      <div className="inventory-section-heading">
+        <span>Crafting</span>
+        <small>Unavailable recipes are missing ingredients.</small>
+      </div>
+      <div className="crafting-grid">
+        {recipes.map((recipe) => {
+          const available = canCraft(inventory, recipe);
+          const output = ITEMS[recipe.output];
+          return (
+            <button
+              type="button"
+              key={recipe.id}
+              disabled={!available}
+              onClick={() => onCraftRecipe(recipe)}
+              className={`crafting-recipe ${available ? "is-available" : "is-unavailable"}`}
+            >
+              {output ? renderInventorySwatch(output) : null}
+              <span className="palette-copy">
+                <span>
+                  {recipe.name} x{recipe.amount}
+                </span>
+                <small>{formatIngredients(recipe.ingredients)}</small>
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

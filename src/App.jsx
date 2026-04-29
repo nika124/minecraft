@@ -5,6 +5,7 @@ import GameStage from "./components/GameStage";
 import HelpOverlay from "./components/HelpOverlay";
 import InventoryPanel from "./components/InventoryPanel";
 import SettingsOverlay from "./components/SettingsOverlay";
+import { canCraft, craftItem } from "./game/crafting";
 import {
   BLOCK_BY_ID,
   BLOCKS,
@@ -19,6 +20,14 @@ import {
   WORLD_H,
   WORLD_W,
 } from "./game/constants";
+import {
+  createInventory,
+  getItemCount,
+  removeItem,
+  STARTING_INVENTORY,
+} from "./game/inventory";
+import { getForegroundItemId, getWallItemId } from "./game/items";
+import { RECIPES } from "./game/recipes";
 import {
   drawEnvironment,
   makeRainDrops,
@@ -105,6 +114,7 @@ export default function MinecraftInspiredWebGame() {
   const skyCoverageRef = useRef(null);
   const placedBlocksRef = useRef(new Set());
   const anchoredLaddersRef = useRef(new Set());
+  const inventoryRef = useRef(null);
   const particlesRef = useRef([]);
   const miningRef = useRef({
     targetKey: null,
@@ -129,6 +139,7 @@ export default function MinecraftInspiredWebGame() {
   const [selected, setSelected] = useState(1);
   const [selectedWall, setSelectedWall] = useState(0);
   const [blockHotbar, setBlockHotbar] = useState(DEFAULT_BLOCK_HOTBAR);
+  const [inventory, setInventory] = useState(() => createInventory());
   const [buildMode, setBuildMode] = useState("foreground");
   const [stats, setStats] = useState(createStats());
   const [isPaused, setIsPaused] = useState(false);
@@ -143,6 +154,14 @@ export default function MinecraftInspiredWebGame() {
   if (skyCoverageRef.current === null) {
     skyCoverageRef.current = createSkyCoverage(initialWorld.world);
   }
+
+  if (inventoryRef.current === null) {
+    inventoryRef.current = inventory;
+  }
+
+  const publishInventory = useCallback(() => {
+    setInventory({ ...inventoryRef.current });
+  }, []);
 
   useEffect(() => {
     selectedRef.current = selected;
@@ -190,6 +209,14 @@ export default function MinecraftInspiredWebGame() {
     (placeableIndex, slotIndex) => {
       const item = FOREGROUND_ITEMS[placeableIndex];
       if (!item) return;
+      const itemId = getForegroundItemId(item);
+      if (!itemId || getItemCount(inventoryRef, itemId) <= 0) {
+        setStats((current) => ({
+          ...current,
+          message: `You do not have ${item.name}.`,
+        }));
+        return;
+      }
 
       setBlockHotbar((current) =>
         current.map((value, index) =>
@@ -255,6 +282,14 @@ export default function MinecraftInspiredWebGame() {
     (placeableIndex) => {
       const item = FOREGROUND_ITEMS[placeableIndex];
       if (!item) return;
+      const itemId = getForegroundItemId(item);
+      if (!itemId || getItemCount(inventoryRef, itemId) <= 0) {
+        setStats((current) => ({
+          ...current,
+          message: `You do not have ${item.name}.`,
+        }));
+        return;
+      }
 
       setCarriedPlaceableIndex(placeableIndex);
       showSelectionHint(item, "foreground");
@@ -274,6 +309,19 @@ export default function MinecraftInspiredWebGame() {
       showSelectionHint(item, "background");
     },
     [showSelectionHint],
+  );
+
+  const handleCraftRecipe = useCallback(
+    (recipe) => {
+      if (!canCraft(inventoryRef, recipe)) return;
+      craftItem(inventoryRef, recipe);
+      publishInventory();
+      setStats((current) => ({
+        ...current,
+        message: `Crafted ${recipe.amount} ${recipe.name}.`,
+      }));
+    },
+    [publishInventory],
   );
 
   const toggleBuildMode = () => {
@@ -318,6 +366,8 @@ export default function MinecraftInspiredWebGame() {
     skyCoverageRef.current = createSkyCoverage(next.world);
     placedBlocksRef.current = new Set();
     anchoredLaddersRef.current = new Set();
+    inventoryRef.current = createInventory(STARTING_INVENTORY);
+    publishInventory();
     particlesRef.current = [];
     miningRef.current = {
       targetKey: null,
@@ -338,16 +388,32 @@ export default function MinecraftInspiredWebGame() {
     const centerX = Math.floor((player.x + player.w / 2) / TILE);
     const centerY = Math.floor((player.y + player.h / 2) / TILE);
     const wall = WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall;
+    const wallItemId = getWallItemId(wall);
+    const available = getItemCount(inventoryRef, wallItemId);
     let count = 0;
+
+    if (!wallItemId || available <= 0) {
+      setStats((current) => ({
+        ...current,
+        message: `You do not have ${wall.name}.`,
+      }));
+      return;
+    }
 
     for (let y = centerY - 14; y <= centerY + 12; y++) {
       for (let x = centerX - 15; x <= centerX + 15; x++) {
         if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) continue;
+        if (count >= available) break;
         if (wallsRef.current[y][x] !== wall.id) {
           wallsRef.current[y][x] = wall.id;
           count++;
         }
       }
+    }
+
+    if (count > 0) {
+      removeItem(inventoryRef, wallItemId, count);
+      publishInventory();
     }
 
     setStats((current) => ({
@@ -521,6 +587,8 @@ export default function MinecraftInspiredWebGame() {
         anchoredLaddersRef,
         particlesRef,
         skyCoverageRef,
+        inventoryRef,
+        onInventoryChange: publishInventory,
         setStats,
         stepWaterFlow,
       });
@@ -754,6 +822,7 @@ export default function MinecraftInspiredWebGame() {
         blockHotbar: blockHotbarRef.current,
         selected: selectedRef.current,
         selectedWall: selectedWallRef.current,
+        inventory: inventoryRef.current,
       });
       drawSelectionHint(uiCtx, selectionHintRef.current);
 
@@ -779,7 +848,7 @@ export default function MinecraftInspiredWebGame() {
       window.removeEventListener("resize", resizeUiCanvas);
       cancelAnimationFrame(raf);
     };
-  }, [stepWaterFlow, worldSeed]);
+  }, [publishInventory, stepWaterFlow, worldSeed]);
 
   return (
     <main className="game-app">
@@ -817,12 +886,15 @@ export default function MinecraftInspiredWebGame() {
                 selected={selected}
                 selectedWall={selectedWall}
                 blockHotbar={blockHotbar}
+                inventory={inventory}
+                recipes={RECIPES}
                 onSelectHotbarSlot={selectBlock}
                 onChooseInventoryBlock={chooseInventoryBlock}
                 onAssignInventoryBlock={assignBlockToHotbar}
                 onClearHotbarSlot={clearHotbarSlot}
                 onSwapHotbarSlots={swapHotbarSlots}
                 onSelectWall={selectWall}
+                onCraftRecipe={handleCraftRecipe}
                 onSetForegroundMode={() => setBuildMode("foreground")}
                 onSetBackgroundMode={() => setBuildMode("background")}
                 carriedPlaceableIndex={carriedPlaceableIndex}

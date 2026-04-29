@@ -1,4 +1,6 @@
 import { FOREGROUND_ITEMS, VIEW_H, VIEW_W, WALL_PLACEABLE } from "../constants";
+import { getItemCount } from "../inventory";
+import { getForegroundItemId, getWallItemId } from "../items";
 import { getBlockTexture, getItemTexture, getWallTexture } from "../textures";
 import { clamp } from "../world";
 
@@ -60,6 +62,7 @@ export function drawHotbar(ctx, state) {
     blockHotbar,
     selected,
     selectedWall,
+    inventory,
   } = state;
   const items =
     buildMode === "background"
@@ -89,6 +92,11 @@ export function drawHotbar(ctx, state) {
     }
 
     if (item) {
+      const itemId =
+        buildMode === "background"
+          ? getWallItemId(item)
+          : getForegroundItemId(item);
+      const count = getItemCount(inventory, itemId);
       const texture =
         buildMode === "background"
           ? getWallTexture(item)
@@ -106,6 +114,15 @@ export function drawHotbar(ctx, state) {
       ctx.font = "900 11px ui-monospace, Cascadia Mono, Consolas, monospace";
       ctx.textAlign = "left";
       ctx.fillText(i === 9 ? "0" : String(i + 1), x + 5, y + 14);
+
+      ctx.fillStyle = count > 0 ? "#f8fafc" : "#fecaca";
+      ctx.strokeStyle = "rgba(15,23,42,.85)";
+      ctx.lineWidth = 3;
+      ctx.font = "900 10px ui-monospace, Cascadia Mono, Consolas, monospace";
+      ctx.textAlign = "right";
+      const countText = String(count);
+      ctx.strokeText(countText, x + slot - 5, y + slot - 6);
+      ctx.fillText(countText, x + slot - 5, y + slot - 6);
     }
   }
 
