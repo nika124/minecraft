@@ -16,7 +16,9 @@ export default function InventoryPanel({
   buildMode,
   selected,
   selectedWall,
-  onSelect,
+  blockHotbar,
+  onSelectHotbarSlot,
+  onChooseInventoryBlock,
   onSelectWall,
   onSetForegroundMode,
   onSetBackgroundMode,
@@ -40,27 +42,60 @@ export default function InventoryPanel({
       </div>
 
       {buildMode === "foreground" ? (
-        <div className="palette-grid">
-          {PLACEABLE.map((block, index) => (
-            <button
-              key={block.id}
-              onClick={() => onSelect(index)}
-              className={`palette-item ${selected === index ? "is-selected" : ""}`}
-            >
-              {renderTextureSwatch(block, "block")}
-              <span className="palette-copy">
-                <span>{index === 9 ? "0" : index + 1}. {block.name}</span>
-                <small>
-                  {block.id === BLOCKS.torch.id
-                    ? "Light source"
-                    : block.id === BLOCKS.water.id
-                      ? "Flowing liquid"
-                      : "Solid block"}
-                </small>
-              </span>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="inventory-section-heading">
+            <span>Hotbar</span>
+            <small>Select a slot, then choose an item below to swap it in.</small>
+          </div>
+          <div className="hotbar-editor">
+            {blockHotbar.map((placeableIndex, slotIndex) => {
+              const block = PLACEABLE[placeableIndex];
+              return (
+                <button
+                  key={`${slotIndex}-${block.id}`}
+                  onClick={() => onSelectHotbarSlot(slotIndex)}
+                  className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""}`}
+                >
+                  <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
+                  {renderTextureSwatch(block, "block")}
+                  <span>{block.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="inventory-section-heading">
+            <span>Inventory</span>
+            <small>Items already on the hotbar are marked as equipped.</small>
+          </div>
+          <div className="palette-grid">
+            {PLACEABLE.map((block, index) => {
+              const equippedSlot = blockHotbar.indexOf(index);
+              const isSelected = equippedSlot === selected;
+              return (
+                <button
+                  key={block.id}
+                  onClick={() => onChooseInventoryBlock(index)}
+                  className={`palette-item ${isSelected ? "is-selected" : ""}`}
+                >
+                  {renderTextureSwatch(block, "block")}
+                  <span className="palette-copy">
+                    <span>{block.name}</span>
+                    <small>
+                      {equippedSlot !== -1
+                        ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+                        : block.id === BLOCKS.torch.id
+                          ? "Light source"
+                          : block.id === BLOCKS.water.id
+                            ? "Flowing liquid"
+                            : "Click to swap into hotbar"}
+                    </small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
       ) : (
         <div className="palette-grid">
           {WALL_PLACEABLE.map((wall, index) => (

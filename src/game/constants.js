@@ -101,6 +101,7 @@ export const PLACEABLE = [
   BLOCKS.glass,
   BLOCKS.torch,
   BLOCKS.water,
+  BLOCKS.ore,
 ];
 
 export const WALL_PLACEABLE = [

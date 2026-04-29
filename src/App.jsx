@@ -47,6 +47,10 @@ void SettingsOverlay;
 
 const MAX_WATER_SPREAD = 7;
 const WATER_FLOW_STEP = 0.16;
+const HOTBAR_SLOT_COUNT = 10;
+const DEFAULT_BLOCK_HOTBAR = PLACEABLE.slice(0, HOTBAR_SLOT_COUNT).map(
+  (_, index) => index,
+);
 const DEFAULT_GAME_SETTINGS = {
   movementSpeed: 1,
   dayCycleSpeed: 1,
@@ -106,6 +110,7 @@ export default function MinecraftInspiredWebGame() {
   const cameraRef = useRef({ x: 0, y: 0 });
   const selectedRef = useRef(1);
   const selectedWallRef = useRef(0);
+  const blockHotbarRef = useRef(DEFAULT_BLOCK_HOTBAR);
   const selectionHintRef = useRef({ text: "", color: "#86efac", until: 0 });
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
@@ -114,6 +119,7 @@ export default function MinecraftInspiredWebGame() {
 
   const [selected, setSelected] = useState(1);
   const [selectedWall, setSelectedWall] = useState(0);
+  const [blockHotbar, setBlockHotbar] = useState(DEFAULT_BLOCK_HOTBAR);
   const [buildMode, setBuildMode] = useState("foreground");
   const [stats, setStats] = useState(createStats());
   const [isPaused, setIsPaused] = useState(false);
@@ -134,6 +140,10 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     selectedWallRef.current = selectedWall;
   }, [selectedWall]);
+
+  useEffect(() => {
+    blockHotbarRef.current = blockHotbar;
+  }, [blockHotbar]);
 
   useEffect(() => {
     buildModeRef.current = buildMode;
@@ -162,11 +172,38 @@ export default function MinecraftInspiredWebGame() {
   }, []);
 
   const selectBlock = useCallback(
-    (index) => {
-      const item = PLACEABLE[index];
+    (slotIndex) => {
+      const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
       if (!item) return;
-      setSelected(index);
+      setSelected(slotIndex);
       showSelectionHint(item, "foreground");
+    },
+    [showSelectionHint],
+  );
+
+  const chooseInventoryBlock = useCallback(
+    (placeableIndex) => {
+      const item = PLACEABLE[placeableIndex];
+      if (!item) return;
+
+      const existingSlot = blockHotbarRef.current.indexOf(placeableIndex);
+      if (existingSlot !== -1) {
+        setSelected(existingSlot);
+        showSelectionHint(item, "foreground");
+        return;
+      }
+
+      const targetSlot = selectedRef.current;
+      setBlockHotbar((current) =>
+        current.map((value, index) =>
+          index === targetSlot ? placeableIndex : value,
+        ),
+      );
+      showSelectionHint(item, "foreground");
+      setStats((current) => ({
+        ...current,
+        message: `Moved ${item.name} into hotbar slot ${targetSlot === 9 ? "0" : targetSlot + 1}.`,
+      }));
     },
     [showSelectionHint],
   );
@@ -300,7 +337,7 @@ export default function MinecraftInspiredWebGame() {
         const index = key === "0" ? 9 : Number(key) - 1;
         if (buildModeRef.current === "background") {
           if (index < WALL_PLACEABLE.length) selectWall(index);
-        } else if (index < PLACEABLE.length) {
+        } else if (index < HOTBAR_SLOT_COUNT) {
           selectBlock(index);
         }
       }
@@ -933,7 +970,9 @@ export default function MinecraftInspiredWebGame() {
       }
 
       if (mouse.button === 2) {
-        const placeBlock = PLACEABLE[selectedRef.current] ?? BLOCKS.dirt;
+        const placeBlock =
+          PLACEABLE[blockHotbarRef.current[selectedRef.current]] ??
+          BLOCKS.dirt;
         const px = worldX * TILE;
         const py = worldY * TILE;
         const touchingPlayer = !(
@@ -1275,7 +1314,9 @@ export default function MinecraftInspiredWebGame() {
 
     const drawHotbar = () => {
       const items =
-        buildModeRef.current === "background" ? WALL_PLACEABLE : PLACEABLE;
+        buildModeRef.current === "background"
+          ? WALL_PLACEABLE
+          : blockHotbarRef.current.map((index) => PLACEABLE[index]);
       const selectedIndex =
         buildModeRef.current === "background"
           ? selectedWallRef.current
@@ -1451,7 +1492,8 @@ export default function MinecraftInspiredWebGame() {
       const heldItem =
         buildModeRef.current === "background"
           ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
-          : (PLACEABLE[selectedRef.current] ?? BLOCKS.dirt);
+          : (PLACEABLE[blockHotbarRef.current[selectedRef.current]] ??
+            BLOCKS.dirt);
       const dayCycleSpeed = 0.018;
       const settings = settingsRef.current;
       const cycledDay = (Math.sin(skyTime * dayCycleSpeed) + 1) / 2;
@@ -1907,7 +1949,9 @@ export default function MinecraftInspiredWebGame() {
             buildMode={buildMode}
             selected={selected}
             selectedWall={selectedWall}
-            onSelect={selectBlock}
+            blockHotbar={blockHotbar}
+            onSelectHotbarSlot={selectBlock}
+            onChooseInventoryBlock={chooseInventoryBlock}
             onSelectWall={selectWall}
             onSetForegroundMode={() => setBuildMode("foreground")}
             onSetBackgroundMode={() => setBuildMode("background")}
