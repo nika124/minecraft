@@ -3,7 +3,7 @@ const HELP_CONTROLS = [
   ["W / Space", "Jump"],
   ["Shift", "Run"],
   ["Left click", "Mine block or remove wall"],
-  ["Right click", "Place block or wall"],
+  ["Right click", "Place block or open targeted workbench"],
   ["1-0", "Select hotbar item"],
   ["I", "Open or close inventory"],
   ["B", "Switch foreground/background"],

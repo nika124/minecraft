@@ -11,10 +11,11 @@ import {
   WORLD_W,
 } from "../constants";
 import { getBlockDrops, getWallDrops, formatDrops } from "../drops";
-import { addDrops, getItemCount, removeItem } from "../inventory";
+import { getItemCount, removeItem } from "../inventory";
 import { getForegroundItemId, getWallItemId } from "../items";
 import { updateSkyCoverageColumn } from "../rendering";
 import { emitParticles } from "../world";
+import { spawnDroppedItems } from "./droppedItems";
 import {
   blockHasSupport,
   ladderHasAnchor,
@@ -34,8 +35,7 @@ export function removeUnsupportedTorches({
   y,
   placedBlocksRef,
   particlesRef,
-  inventoryRef,
-  onInventoryChange,
+  droppedItemsRef,
 }) {
   const neighbors = [
     [x, y],
@@ -60,9 +60,12 @@ export function removeUnsupportedTorches({
       BLOCKS.torch.color,
       5,
     );
-    if (addDrops(inventoryRef, getBlockDrops(BLOCKS.torch))) {
-      onInventoryChange?.();
-    }
+    spawnDroppedItems(
+      droppedItemsRef,
+      getBlockDrops(BLOCKS.torch),
+      nx * TILE + TILE / 2,
+      ny * TILE + TILE / 2,
+    );
     removed++;
   }
 
@@ -74,8 +77,7 @@ export function removeUnsupportedLadders({
   ladders,
   anchoredLaddersRef,
   particlesRef,
-  inventoryRef,
-  onInventoryChange,
+  droppedItemsRef,
 }) {
   const removed = [];
 
@@ -99,12 +101,13 @@ export function removeUnsupportedLadders({
     );
   }
 
-  if (removed.length > 0) {
-    addDrops(
-      inventoryRef,
-      removed.flatMap(() => getWallDrops(WALLS.ladder)),
+  for (const [x, y] of removed) {
+    spawnDroppedItems(
+      droppedItemsRef,
+      getWallDrops(WALLS.ladder),
+      x * TILE + TILE / 2,
+      y * TILE + TILE / 2,
     );
-    onInventoryChange?.();
   }
 
   return removed.length;
@@ -140,9 +143,11 @@ export function mineOrPlace({
   particlesRef,
   skyCoverageRef,
   inventoryRef,
+  droppedItemsRef,
   onInventoryChange,
   setStats,
   stepWaterFlow,
+  onOpenWorkbench,
 }) {
   let nextMineCooldown = mineCooldown - dt;
   const mouse = mouseRef.current;
@@ -194,7 +199,12 @@ export function mineOrPlace({
         ladders[worldY][worldX] = false;
         anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
         const drops = getWallDrops(WALLS.ladder);
-        if (addDrops(inventoryRef, drops)) onInventoryChange?.();
+        spawnDroppedItems(
+          droppedItemsRef,
+          drops,
+          worldX * TILE + TILE / 2,
+          worldY * TILE + TILE / 2,
+        );
         emitParticles(
           particlesRef.current,
           worldX * TILE + TILE / 2,
@@ -218,19 +228,22 @@ export function mineOrPlace({
           y: worldY,
           placedBlocksRef,
           particlesRef,
-          inventoryRef,
-          onInventoryChange,
+          droppedItemsRef,
         });
         const laddersRemoved = removeUnsupportedLadders({
           walls,
           ladders,
           anchoredLaddersRef,
           particlesRef,
-          inventoryRef,
-          onInventoryChange,
+          droppedItemsRef,
         });
         const drops = getWallDrops(removedWall);
-        if (addDrops(inventoryRef, drops)) onInventoryChange?.();
+        spawnDroppedItems(
+          droppedItemsRef,
+          drops,
+          worldX * TILE + TILE / 2,
+          worldY * TILE + TILE / 2,
+        );
         emitParticles(
           particlesRef.current,
           worldX * TILE + TILE / 2,
@@ -284,7 +297,12 @@ export function mineOrPlace({
         }
       } else if (walls[worldY][worldX] !== wall.id) {
         const replacedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
-        addDrops(inventoryRef, getWallDrops(replacedWall));
+        spawnDroppedItems(
+          droppedItemsRef,
+          getWallDrops(replacedWall),
+          worldX * TILE + TILE / 2,
+          worldY * TILE + TILE / 2,
+        );
         walls[worldY][worldX] = wall.id;
         anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
       } else {
@@ -312,6 +330,16 @@ export function mineOrPlace({
 
   const currentBlock = BLOCK_BY_ID[world[worldY][worldX]] ?? BLOCKS.air;
   const blockKey = `${worldX},${worldY}`;
+
+  if (mouse.button === 2 && currentBlock.id === BLOCKS.workbench.id) {
+    resetMiningState(miningRef);
+    onOpenWorkbench?.();
+    setStats((current) => ({
+      ...current,
+      message: "Opened Workbench.",
+    }));
+    return 0.18;
+  }
 
   if (mouse.button === 0 && currentBlock.id !== BLOCKS.air.id) {
     if (currentBlock.unbreakable) {
@@ -389,11 +417,15 @@ export function mineOrPlace({
       y: worldY,
       placedBlocksRef,
       particlesRef,
-      inventoryRef,
-      onInventoryChange,
+      droppedItemsRef,
     });
     const drops = getBlockDrops(currentBlock);
-    if (addDrops(inventoryRef, drops)) onInventoryChange?.();
+    spawnDroppedItems(
+      droppedItemsRef,
+      drops,
+      worldX * TILE + TILE / 2,
+      worldY * TILE + TILE / 2,
+    );
     const wasPlayerPlaced = placedBlocksRef.current.delete(blockKey);
     const leavesNaturalAir =
       currentBlock.id === BLOCKS.wood.id ||

@@ -1,10 +1,11 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BLOCK_BY_ID,
   FOREGROUND_ITEMS,
   WALL_BY_ID,
   WALL_PLACEABLE,
 } from "../game/constants";
-import { canCraft } from "../game/crafting";
 import { getItemCount } from "../game/inventory";
 import {
   ITEM_LIST,
@@ -18,6 +19,9 @@ import {
   getItemTexture,
   getWallTexture,
 } from "../game/textures";
+import CraftingGrid from "./CraftingGrid";
+
+void CraftingGrid;
 
 function renderTextureSwatch(item, type) {
   const texture =
@@ -60,35 +64,40 @@ function renderInventorySwatch(item) {
   );
 }
 
-function formatIngredients(ingredients) {
-  return Object.entries(ingredients)
-    .map(([itemId, amount]) => `${amount} ${ITEMS[itemId]?.name ?? itemId}`)
-    .join(" + ");
-}
-
 export default function InventoryPanel({
   buildMode,
   selected,
   selectedWall,
   blockHotbar,
   inventory,
-  recipes,
+  craftingTitle = "Crafting",
+  craftingSize = 2,
+  craftingGrid,
+  craftingOutput,
+  cursorStack,
   onSelectHotbarSlot,
   onChooseInventoryBlock,
+  onInventorySlotMouseDown,
+  onHotbarSlotMouseDown,
+  onCraftingSlotMouseDown,
+  onCraftingOutputMouseDown,
   onAssignInventoryBlock,
   onClearHotbarSlot,
   onSwapHotbarSlots,
   onSelectWall,
-  onCraftRecipe,
   onSetForegroundMode,
   onSetBackgroundMode,
   carriedPlaceableIndex,
+  panelTitle = "Inventory",
+  panelSubtitle = "Pick a stack for crafting, or drag placeable items into the hotbar.",
   onClose,
 }) {
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const carriedItem =
     carriedPlaceableIndex === null
       ? null
       : FOREGROUND_ITEMS[carriedPlaceableIndex];
+
   const setDragData = (event, value) => {
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", value);
@@ -109,16 +118,40 @@ export default function InventoryPanel({
     if (type === "hotbar") onSwapHotbarSlots(Number(value), slotIndex);
   };
 
+  const handleMouseMove = (event) => {
+    setCursorPosition({ x: event.clientX, y: event.clientY });
+  };
+
+  const carriedOverlay =
+    cursorStack && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="carried-stack"
+            style={{ left: cursorPosition.x, top: cursorPosition.y }}
+            aria-hidden="true"
+          >
+            {renderInventorySwatch(ITEMS[cursorStack.itemId])}
+            <span className="item-count">{cursorStack.amount}</span>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div className={`panel inventory-panel ${onClose ? "is-overlay" : ""}`}>
+    <div
+      className={`panel inventory-panel ${onClose ? "is-overlay" : ""}`}
+      onMouseMove={handleMouseMove}
+    >
       {onClose && (
         <div className="inventory-title-row">
           <div>
-            <span>Inventory</span>
+            <span>{panelTitle}</span>
             <small>
-              {carriedItem
-                ? `Holding ${carriedItem.name}: click a hotbar slot or press 1-0.`
-                : "Pick an item, then drop it into the hotbar."}
+              {cursorStack
+                ? `Holding ${ITEMS[cursorStack.itemId]?.name ?? cursorStack.itemId} x${cursorStack.amount}.`
+                : carriedItem
+                  ? `Assigning ${carriedItem.name}: click a hotbar slot or press 1-0.`
+                  : panelSubtitle}
             </small>
           </div>
           <button onClick={onClose} className="inventory-close" aria-label="Close inventory">
@@ -133,7 +166,7 @@ export default function InventoryPanel({
           onClick={onSetForegroundMode}
           className={`mode-tab ${buildMode === "foreground" ? "is-active" : ""}`}
         >
-          Normal
+          Foreground
         </button>
         <button
           onClick={onSetBackgroundMode}
@@ -143,156 +176,153 @@ export default function InventoryPanel({
         </button>
       </div>
 
-      {buildMode === "foreground" ? (
-        <>
-          <div className="inventory-section-heading">
-            <span>Inventory items</span>
-            <small>Items with counts can be assigned to the hotbar.</small>
-          </div>
-          <div
-            className="palette-grid inventory-items-grid"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleInventoryDrop}
-          >
-            {ITEM_LIST.map((item) => {
-              const count = getItemCount(inventory, item.id);
-              const foregroundIndex = getForegroundIndexForItem(item.id);
-              const isAssignable = foregroundIndex !== null;
-              const equippedSlot = isAssignable
-                ? blockHotbar.indexOf(foregroundIndex)
-                : -1;
-              const isCarried = carriedPlaceableIndex === foregroundIndex;
-              const disabled = !isAssignable || count <= 0;
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  draggable={!disabled}
-                  disabled={disabled}
-                  onClick={() => {
-                    if (isAssignable) onChooseInventoryBlock(foregroundIndex);
-                  }}
-                  onDragStart={(event) => {
-                    if (disabled) return;
-                    onChooseInventoryBlock(foregroundIndex);
-                    setDragData(event, `inventory:${foregroundIndex}`);
-                  }}
-                  className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
-                >
-                  {renderInventorySwatch(item)}
-                  <span className="item-count">{count}</span>
-                  <span className="palette-copy">
-                    <span>{item.name}</span>
-                    <small>
-                      {equippedSlot !== -1
-                        ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
-                        : item.category === "tool"
-                          ? "Mining tool"
-                          : item.id === "torch"
-                          ? "Light source"
-                          : item.id === "water"
-                            ? "Flowing liquid"
-                            : isAssignable
-                              ? "Can equip"
-                              : "Crafting item"}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      <div className="inventory-workspace">
+        <div className="inventory-main">
+          {buildMode === "foreground" ? (
+            <>
+              <div className="inventory-section-heading">
+                <span>Foreground blocks and items</span>
+                <small>Left click carries a stack. Drag or carry to the hotbar to assign.</small>
+              </div>
+              <div
+                className="palette-grid inventory-items-grid"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleInventoryDrop}
+              >
+                {ITEM_LIST.map((item) => {
+                  const count = getItemCount(inventory, item.id);
+                  const foregroundIndex = getForegroundIndexForItem(item.id);
+                  const isAssignable = foregroundIndex !== null;
+                  const equippedSlot = isAssignable
+                    ? blockHotbar.indexOf(foregroundIndex)
+                    : -1;
+                  const isCarried = carriedPlaceableIndex === foregroundIndex;
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      draggable={isAssignable && count > 0}
+                      disabled={count <= 0 && !cursorStack}
+                      onMouseDown={(event) => {
+                        if (event.button === 2) {
+                          onInventorySlotMouseDown(item.id, event.button);
+                        }
+                      }}
+                      onContextMenu={(event) => event.preventDefault()}
+                      onClick={() => onInventorySlotMouseDown(item.id, 0)}
+                      onDragStart={(event) => {
+                        if (!isAssignable || count <= 0) return;
+                        onChooseInventoryBlock(foregroundIndex);
+                        setDragData(event, `inventory:${foregroundIndex}`);
+                      }}
+                      className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
+                    >
+                      {renderInventorySwatch(item)}
+                      <span className="item-count">{count}</span>
+                      <span className="palette-copy">
+                        <span>{item.name}</span>
+                        <small>
+                          {equippedSlot !== -1
+                            ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+                            : item.category === "tool"
+                              ? "Mining tool"
+                              : item.id === "torch"
+                                ? "Light source"
+                                : item.id === "water"
+                                  ? "Flowing liquid"
+                                  : isAssignable
+                                    ? "Can equip"
+                                    : "Crafting item"}
+                        </small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="inventory-section-heading">
+                <span>Background walls</span>
+                <small>Pick the wall used while background mode is active.</small>
+              </div>
+              <div className="palette-grid inventory-items-grid">
+                {WALL_PLACEABLE.map((wall, index) => {
+                  const count = getItemCount(inventory, getWallItemId(wall));
+                  return (
+                    <button
+                      type="button"
+                      key={wall.id}
+                      onClick={() => onSelectWall(index)}
+                      className={`palette-item is-wall ${selectedWall === index ? "is-selected" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
+                    >
+                      {renderTextureSwatch(wall, "wall")}
+                      <span className="item-count">{count}</span>
+                      <span className="palette-copy">
+                        <span>{index + 1}. {wall.name}</span>
+                        <small>Background wall</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
 
-          <div className="inventory-section-heading hotbar-heading">
-            <span>Hotbar</span>
-            <small>
-              {carriedItem
-                ? "Click a slot or press 1-0 to assign the held item."
-                : "Drag a hotbar item upward to remove it."}
-            </small>
-          </div>
-          <div className="hotbar-editor">
-            {blockHotbar.map((foregroundItemIndex, slotIndex) => {
-              const item = FOREGROUND_ITEMS[foregroundItemIndex];
-              const itemId = getForegroundItemId(item);
-              const count = itemId ? getItemCount(inventory, itemId) : 0;
-              return (
-                <button
-                  type="button"
-                  key={`${slotIndex}-${item?.id ?? "empty"}`}
-                  draggable={Boolean(item)}
-                  onClick={() => onSelectHotbarSlot(slotIndex)}
-                  onDragStart={(event) => {
-                    if (!item) return;
-                    setDragData(event, `hotbar:${slotIndex}`);
-                  }}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => handleHotbarDrop(event, slotIndex)}
-                  className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!item ? "is-empty" : ""}`}
-                >
-                  <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
-                  {item ? renderTextureSwatch(item, "block") : <span className="empty-slot" />}
-                  {item ? <span className="item-count hotbar-count">{count}</span> : null}
-                  <span>{item?.name ?? "Empty"}</span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="inventory-section-heading">
-            <span>Background items</span>
-            <small>Pick the wall used while background mode is active.</small>
-          </div>
-          <div className="palette-grid">
-            {WALL_PLACEABLE.map((wall, index) => {
-              const count = getItemCount(inventory, getWallItemId(wall));
-              return (
-                <button
-                  key={wall.id}
-                  onClick={() => onSelectWall(index)}
-                  className={`palette-item is-wall ${selectedWall === index ? "is-selected" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
-                >
-                  {renderTextureSwatch(wall, "wall")}
-                  <span className="item-count">{count}</span>
-                  <span className="palette-copy">
-                    <span>{index + 1}. {wall.name}</span>
-                    <small>Background wall</small>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-
-      <div className="inventory-section-heading">
-        <span>Crafting</span>
-        <small>Unavailable recipes are missing ingredients.</small>
+        <CraftingGrid
+          title={craftingTitle}
+          size={craftingSize}
+          slots={craftingGrid}
+          output={craftingOutput}
+          renderItem={renderInventorySwatch}
+          onSlotMouseDown={onCraftingSlotMouseDown}
+          onOutputMouseDown={onCraftingOutputMouseDown}
+        />
       </div>
-      <div className="crafting-grid">
-        {recipes.map((recipe) => {
-          const available = canCraft(inventory, recipe);
-          const output = ITEMS[recipe.output];
+
+      <div className="inventory-section-heading hotbar-heading">
+        <span>Hotbar</span>
+        <small>
+          {cursorStack
+            ? "Click a hotbar slot to assign the carried placeable item."
+            : carriedItem
+              ? "Click a slot or press 1-0 to assign the selected item."
+              : "Drag a hotbar item upward to clear it."}
+        </small>
+      </div>
+      <div className="hotbar-editor">
+        {blockHotbar.map((foregroundItemIndex, slotIndex) => {
+          const item = FOREGROUND_ITEMS[foregroundItemIndex];
+          const itemId = getForegroundItemId(item);
+          const count = itemId ? getItemCount(inventory, itemId) : 0;
           return (
             <button
               type="button"
-              key={recipe.id}
-              disabled={!available}
-              onClick={() => onCraftRecipe(recipe)}
-              className={`crafting-recipe ${available ? "is-available" : "is-unavailable"}`}
+              key={`${slotIndex}-${item?.id ?? "empty"}`}
+              draggable={Boolean(item)}
+              onClick={() => {
+                if (cursorStack) onHotbarSlotMouseDown(slotIndex, 0);
+                else onSelectHotbarSlot(slotIndex);
+              }}
+              onDragStart={(event) => {
+                if (!item) return;
+                setDragData(event, `hotbar:${slotIndex}`);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => handleHotbarDrop(event, slotIndex)}
+              className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!item ? "is-empty" : ""}`}
             >
-              {output ? renderInventorySwatch(output) : null}
-              <span className="palette-copy">
-                <span>
-                  {recipe.name} x{recipe.amount}
-                </span>
-                <small>{formatIngredients(recipe.ingredients)}</small>
-              </span>
+              <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
+              {item ? renderTextureSwatch(item, "block") : <span className="empty-slot" />}
+              {item ? <span className="item-count hotbar-count">{count}</span> : null}
+              <span>{item?.name ?? "Empty"}</span>
             </button>
           );
         })}
       </div>
+
+      {carriedOverlay}
     </div>
   );
 }

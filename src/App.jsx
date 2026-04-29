@@ -5,7 +5,13 @@ import GameStage from "./components/GameStage";
 import HelpOverlay from "./components/HelpOverlay";
 import InventoryPanel from "./components/InventoryPanel";
 import SettingsOverlay from "./components/SettingsOverlay";
-import { canCraft, craftItem } from "./game/crafting";
+import WorkbenchPanel from "./components/WorkbenchPanel";
+import { consumeCraftingIngredients, getCraftingOutput } from "./game/crafting";
+import {
+  MOUSE_BUTTON,
+  clickInventoryCount,
+  clickStackSlot,
+} from "./game/slotInteractions";
 import {
   BLOCK_BY_ID,
   BLOCKS,
@@ -21,13 +27,17 @@ import {
   WORLD_W,
 } from "./game/constants";
 import {
+  addItem,
   createInventory,
   getItemCount,
   removeItem,
   STARTING_INVENTORY,
 } from "./game/inventory";
-import { getForegroundItemId, getWallItemId } from "./game/items";
-import { RECIPES } from "./game/recipes";
+import {
+  getForegroundIndexForItem,
+  getForegroundItemId,
+  getWallItemId,
+} from "./game/items";
 import {
   drawEnvironment,
   makeRainDrops,
@@ -51,6 +61,10 @@ import {
 import { updatePlayerAndCamera } from "./game/simulation/player";
 import { mineOrPlace } from "./game/simulation/interactions";
 import {
+  drawDroppedItems,
+  updateDroppedItems,
+} from "./game/simulation/droppedItems";
+import {
   drawHotbar,
   drawPauseMenu,
   drawSelectionHint,
@@ -73,6 +87,7 @@ void GameStage;
 void HelpOverlay;
 void InventoryPanel;
 void SettingsOverlay;
+void WorkbenchPanel;
 
 const DEFAULT_BLOCK_HOTBAR = [
   PLACEABLE.indexOf(BLOCKS.grass),
@@ -115,6 +130,10 @@ export default function MinecraftInspiredWebGame() {
   const placedBlocksRef = useRef(new Set());
   const anchoredLaddersRef = useRef(new Set());
   const inventoryRef = useRef(null);
+  const inventoryCraftingGridRef = useRef(Array(4).fill(null));
+  const workbenchCraftingGridRef = useRef(Array(9).fill(null));
+  const cursorStackRef = useRef(null);
+  const droppedItemsRef = useRef([]);
   const particlesRef = useRef([]);
   const miningRef = useRef({
     targetKey: null,
@@ -133,6 +152,7 @@ export default function MinecraftInspiredWebGame() {
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
   const inventoryOpenRef = useRef(false);
+  const craftingPanelRef = useRef("inventory");
   const carriedPlaceableRef = useRef(null);
   const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
 
@@ -147,6 +167,14 @@ export default function MinecraftInspiredWebGame() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [craftingPanel, setCraftingPanel] = useState("inventory");
+  const [inventoryCraftingGrid, setInventoryCraftingGrid] = useState(() =>
+    Array(4).fill(null),
+  );
+  const [workbenchCraftingGrid, setWorkbenchCraftingGrid] = useState(() =>
+    Array(9).fill(null),
+  );
+  const [cursorStack, setCursorStack] = useState(null);
   const [carriedPlaceableIndex, setCarriedPlaceableIndex] = useState(null);
   const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_SETTINGS);
   const [worldSeed, setWorldSeed] = useState(1);
@@ -161,6 +189,12 @@ export default function MinecraftInspiredWebGame() {
 
   const publishInventory = useCallback(() => {
     setInventory({ ...inventoryRef.current });
+  }, []);
+
+  const publishCraftingState = useCallback(() => {
+    setInventoryCraftingGrid([...inventoryCraftingGridRef.current]);
+    setWorkbenchCraftingGrid([...workbenchCraftingGridRef.current]);
+    setCursorStack(cursorStackRef.current ? { ...cursorStackRef.current } : null);
   }, []);
 
   useEffect(() => {
@@ -186,6 +220,19 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     inventoryOpenRef.current = isInventoryOpen;
   }, [isInventoryOpen]);
+
+  useEffect(() => {
+    if (!isInventoryOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isInventoryOpen]);
+
+  useEffect(() => {
+    craftingPanelRef.current = craftingPanel;
+  }, [craftingPanel]);
 
   useEffect(() => {
     carriedPlaceableRef.current = carriedPlaceableIndex;
@@ -295,7 +342,7 @@ export default function MinecraftInspiredWebGame() {
       showSelectionHint(item, "foreground");
       setStats((current) => ({
         ...current,
-        message: `Picked up ${item.name}. Click a hotbar slot or press 1-0 to assign it.`,
+        message: `Picked ${item.name} for hotbar assignment.`,
       }));
     },
     [showSelectionHint],
@@ -311,17 +358,217 @@ export default function MinecraftInspiredWebGame() {
     [showSelectionHint],
   );
 
-  const handleCraftRecipe = useCallback(
-    (recipe) => {
-      if (!canCraft(inventoryRef, recipe)) return;
-      craftItem(inventoryRef, recipe);
+  const returnCraftingStacksToInventory = useCallback(() => {
+    for (const slot of inventoryCraftingGridRef.current) {
+      if (slot?.amount) addItem(inventoryRef, slot.itemId, slot.amount);
+    }
+    for (const slot of workbenchCraftingGridRef.current) {
+      if (slot?.amount) addItem(inventoryRef, slot.itemId, slot.amount);
+    }
+    if (cursorStackRef.current?.amount) {
+      addItem(
+        inventoryRef,
+        cursorStackRef.current.itemId,
+        cursorStackRef.current.amount,
+      );
+    }
+
+    inventoryCraftingGridRef.current = Array(4).fill(null);
+    workbenchCraftingGridRef.current = Array(9).fill(null);
+    cursorStackRef.current = null;
+    publishInventory();
+    publishCraftingState();
+  }, [publishCraftingState, publishInventory]);
+
+  const setInventoryOpenFromInput = useCallback(
+    (updater) => {
+      setIsInventoryOpen((current) => {
+        const next = typeof updater === "function" ? updater(current) : updater;
+        if (next) {
+          craftingPanelRef.current = "inventory";
+          setCraftingPanel("inventory");
+          return true;
+        }
+
+        returnCraftingStacksToInventory();
+        setCarriedPlaceableIndex(null);
+        return false;
+      });
+    },
+    [returnCraftingStacksToInventory],
+  );
+
+  const closeInventoryPanel = useCallback(() => {
+    returnCraftingStacksToInventory();
+    setIsInventoryOpen(false);
+    setCarriedPlaceableIndex(null);
+  }, [returnCraftingStacksToInventory]);
+
+  const openWorkbenchPanel = useCallback(() => {
+    craftingPanelRef.current = "workbench";
+    setCraftingPanel("workbench");
+    setIsInventoryOpen(true);
+    setCarriedPlaceableIndex(null);
+    mouseRef.current.down = false;
+  }, []);
+
+  const handleInventorySlotMouseDown = useCallback(
+    (itemId, button) => {
+      const count = getItemCount(inventoryRef, itemId);
+      const next = clickInventoryCount(
+        itemId,
+        count,
+        cursorStackRef.current,
+        button,
+      );
+
+      if (next.inventoryAmount > count) {
+        addItem(inventoryRef, itemId, next.inventoryAmount - count);
+      } else if (next.inventoryAmount < count) {
+        removeItem(inventoryRef, itemId, count - next.inventoryAmount);
+      }
+
+      if (next.displacedStack) {
+        addItem(inventoryRef, next.displacedStack.itemId, next.displacedStack.amount);
+      }
+
+      cursorStackRef.current = next.cursor;
       publishInventory();
+      publishCraftingState();
+      setCarriedPlaceableIndex(null);
+    },
+    [publishCraftingState, publishInventory],
+  );
+
+  const handleHotbarSlotMouseDown = useCallback(
+    (slotIndex, button) => {
+      const cursor = cursorStackRef.current;
+      if (cursor?.amount) {
+        const foregroundIndex = getForegroundIndexForItem(cursor.itemId);
+        if (foregroundIndex === null) {
+          setStats((current) => ({
+            ...current,
+            message: "That item cannot be assigned to the hotbar.",
+          }));
+          return;
+        }
+
+        addItem(inventoryRef, cursor.itemId, cursor.amount);
+        cursorStackRef.current = null;
+        publishInventory();
+        publishCraftingState();
+        assignBlockToHotbar(foregroundIndex, slotIndex);
+        return;
+      }
+
+      const item = FOREGROUND_ITEMS[blockHotbarRef.current[slotIndex]];
+      const itemId = getForegroundItemId(item);
+      if (button === MOUSE_BUTTON.LEFT || !itemId) {
+        selectBlock(slotIndex);
+        return;
+      }
+
+      handleInventorySlotMouseDown(itemId, button);
+    },
+    [
+      assignBlockToHotbar,
+      handleInventorySlotMouseDown,
+      publishCraftingState,
+      publishInventory,
+      selectBlock,
+    ],
+  );
+
+  const activeCraftingGrid = useCallback(() => {
+    if (craftingPanelRef.current === "workbench") {
+      return {
+        gridRef: workbenchCraftingGridRef,
+        width: 3,
+        height: 3,
+        station: "workbench",
+      };
+    }
+
+    return {
+      gridRef: inventoryCraftingGridRef,
+      width: 2,
+      height: 2,
+      station: null,
+    };
+  }, []);
+
+  const handleCraftingSlotMouseDown = useCallback(
+    (slotIndex, button) => {
+      const { gridRef } = activeCraftingGrid();
+      const grid = [...gridRef.current];
+      const next = clickStackSlot(
+        grid[slotIndex],
+        cursorStackRef.current,
+        button,
+      );
+
+      grid[slotIndex] = next.slot;
+      cursorStackRef.current = next.cursor;
+      gridRef.current = grid;
+      publishCraftingState();
+    },
+    [activeCraftingGrid, publishCraftingState],
+  );
+
+  const handleCraftingOutputMouseDown = useCallback((button) => {
+    if (button !== MOUSE_BUTTON.LEFT) return;
+
+    const { gridRef, width, height, station } = activeCraftingGrid();
+    const output = getCraftingOutput(gridRef.current, width, height, station);
+    if (!output) return;
+
+    const cursor = cursorStackRef.current;
+    if (cursor?.amount && cursor.itemId !== output.itemId) {
       setStats((current) => ({
         ...current,
-        message: `Crafted ${recipe.amount} ${recipe.name}.`,
+        message: "Put down the held stack before taking this result.",
       }));
+      return;
+    }
+
+    cursorStackRef.current = {
+      itemId: output.itemId,
+      amount: (cursor?.amount ?? 0) + output.amount,
+    };
+    gridRef.current = consumeCraftingIngredients(gridRef.current, output.recipe);
+    publishCraftingState();
+    setStats((current) => ({
+      ...current,
+      message: `Crafted ${output.amount} ${output.recipe.name}.`,
+    }));
+  }, [activeCraftingGrid, publishCraftingState]);
+
+  const inventoryCraftingOutput = getCraftingOutput(
+    inventoryCraftingGrid,
+    2,
+    2,
+    null,
+  );
+  const workbenchCraftingOutput = getCraftingOutput(
+    workbenchCraftingGrid,
+    3,
+    3,
+    "workbench",
+  );
+
+  const handleCloseInventory = useCallback(() => {
+    closeInventoryPanel();
+  }, [closeInventoryPanel]);
+
+  const handleOpenWorkbench = useCallback(() => {
+    openWorkbenchPanel();
+  }, [openWorkbenchPanel]);
+
+  const setInventoryOpenForKeyboard = useCallback(
+    (updater) => {
+      setInventoryOpenFromInput(updater);
     },
-    [publishInventory],
+    [setInventoryOpenFromInput],
   );
 
   const toggleBuildMode = () => {
@@ -367,8 +614,13 @@ export default function MinecraftInspiredWebGame() {
     placedBlocksRef.current = new Set();
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
+    inventoryCraftingGridRef.current = Array(4).fill(null);
+    workbenchCraftingGridRef.current = Array(9).fill(null);
+    cursorStackRef.current = null;
     publishInventory();
+    publishCraftingState();
     particlesRef.current = [];
+    droppedItemsRef.current = [];
     miningRef.current = {
       targetKey: null,
       blockId: null,
@@ -469,7 +721,7 @@ export default function MinecraftInspiredWebGame() {
     toggleFullscreen,
     setIsHelpOpen,
     setIsSettingsOpen,
-    setIsInventoryOpen,
+    setIsInventoryOpen: setInventoryOpenForKeyboard,
     setCarriedPlaceableIndex,
     setIsPaused,
   });
@@ -567,6 +819,15 @@ export default function MinecraftInspiredWebGame() {
         setStats,
       });
 
+      updateDroppedItems({
+        droppedItemsRef,
+        world,
+        player: playerRef.current,
+        inventoryRef,
+        dt,
+        onInventoryChange: publishInventory,
+      });
+
       mineCooldown = mineOrPlace({
         dt,
         mineCooldown,
@@ -588,9 +849,11 @@ export default function MinecraftInspiredWebGame() {
         particlesRef,
         skyCoverageRef,
         inventoryRef,
+        droppedItemsRef,
         onInventoryChange: publishInventory,
         setStats,
         stepWaterFlow,
+        onOpenWorkbench: handleOpenWorkbench,
       });
     };
 
@@ -736,6 +999,8 @@ export default function MinecraftInspiredWebGame() {
         }
       }
 
+      drawDroppedItems(ctx, droppedItemsRef.current, cam, time);
+
       drawPlayer(
         ctx,
         player.x - cam.x,
@@ -848,7 +1113,7 @@ export default function MinecraftInspiredWebGame() {
       window.removeEventListener("resize", resizeUiCanvas);
       cancelAnimationFrame(raf);
     };
-  }, [publishInventory, stepWaterFlow, worldSeed]);
+  }, [handleOpenWorkbench, publishInventory, stepWaterFlow, worldSeed]);
 
   return (
     <main className="game-app">
@@ -881,28 +1146,57 @@ export default function MinecraftInspiredWebGame() {
           {isInventoryOpen && (
             <>
               <div className="inventory-backdrop" aria-hidden="true" />
-              <InventoryPanel
-                buildMode={buildMode}
-                selected={selected}
-                selectedWall={selectedWall}
-                blockHotbar={blockHotbar}
-                inventory={inventory}
-                recipes={RECIPES}
-                onSelectHotbarSlot={selectBlock}
-                onChooseInventoryBlock={chooseInventoryBlock}
-                onAssignInventoryBlock={assignBlockToHotbar}
-                onClearHotbarSlot={clearHotbarSlot}
-                onSwapHotbarSlots={swapHotbarSlots}
-                onSelectWall={selectWall}
-                onCraftRecipe={handleCraftRecipe}
-                onSetForegroundMode={() => setBuildMode("foreground")}
-                onSetBackgroundMode={() => setBuildMode("background")}
-                carriedPlaceableIndex={carriedPlaceableIndex}
-                onClose={() => {
-                  setIsInventoryOpen(false);
-                  setCarriedPlaceableIndex(null);
-                }}
-              />
+              {craftingPanel === "workbench" ? (
+                <WorkbenchPanel
+                  buildMode={buildMode}
+                  selected={selected}
+                  selectedWall={selectedWall}
+                  blockHotbar={blockHotbar}
+                  inventory={inventory}
+                  craftingGrid={workbenchCraftingGrid}
+                  craftingOutput={workbenchCraftingOutput}
+                  cursorStack={cursorStack}
+                  onSelectHotbarSlot={selectBlock}
+                  onChooseInventoryBlock={chooseInventoryBlock}
+                  onInventorySlotMouseDown={handleInventorySlotMouseDown}
+                  onHotbarSlotMouseDown={handleHotbarSlotMouseDown}
+                  onCraftingSlotMouseDown={handleCraftingSlotMouseDown}
+                  onCraftingOutputMouseDown={handleCraftingOutputMouseDown}
+                  onAssignInventoryBlock={assignBlockToHotbar}
+                  onClearHotbarSlot={clearHotbarSlot}
+                  onSwapHotbarSlots={swapHotbarSlots}
+                  onSelectWall={selectWall}
+                  onSetForegroundMode={() => setBuildMode("foreground")}
+                  onSetBackgroundMode={() => setBuildMode("background")}
+                  carriedPlaceableIndex={carriedPlaceableIndex}
+                  onClose={handleCloseInventory}
+                />
+              ) : (
+                <InventoryPanel
+                  buildMode={buildMode}
+                  selected={selected}
+                  selectedWall={selectedWall}
+                  blockHotbar={blockHotbar}
+                  inventory={inventory}
+                  craftingGrid={inventoryCraftingGrid}
+                  craftingOutput={inventoryCraftingOutput}
+                  cursorStack={cursorStack}
+                  onSelectHotbarSlot={selectBlock}
+                  onChooseInventoryBlock={chooseInventoryBlock}
+                  onInventorySlotMouseDown={handleInventorySlotMouseDown}
+                  onHotbarSlotMouseDown={handleHotbarSlotMouseDown}
+                  onCraftingSlotMouseDown={handleCraftingSlotMouseDown}
+                  onCraftingOutputMouseDown={handleCraftingOutputMouseDown}
+                  onAssignInventoryBlock={assignBlockToHotbar}
+                  onClearHotbarSlot={clearHotbarSlot}
+                  onSwapHotbarSlots={swapHotbarSlots}
+                  onSelectWall={selectWall}
+                  onSetForegroundMode={() => setBuildMode("foreground")}
+                  onSetBackgroundMode={() => setBuildMode("background")}
+                  carriedPlaceableIndex={carriedPlaceableIndex}
+                  onClose={handleCloseInventory}
+                />
+              )}
             </>
           )}
         </GameStage>
