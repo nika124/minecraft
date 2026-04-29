@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BLOCK_BY_ID,
@@ -95,8 +95,12 @@ export default function InventoryPanel({
   panelSubtitle = "Pick a stack for crafting, or drag placeable items into the hotbar.",
   onClose,
 }) {
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [overlayRoot, setOverlayRoot] = useState(null);
+  const [hasPointerPosition, setHasPointerPosition] = useState(false);
+  const carriedStackRef = useRef(null);
+  const pointerPositionRef = useRef(null);
+  const hasPointerPositionRef = useRef(false);
+  const cursorAnimationFrameRef = useRef(0);
   const carriedItem =
     carriedPlaceableIndex === null
       ? null
@@ -122,16 +126,51 @@ export default function InventoryPanel({
     if (type === "hotbar") onSwapHotbarSlots(Number(value), slotIndex);
   };
 
+  const applyCarriedStackPosition = useCallback(() => {
+    cursorAnimationFrameRef.current = 0;
+    const carriedStack = carriedStackRef.current;
+    const pointerPosition = pointerPositionRef.current;
+    if (!carriedStack || !pointerPosition) return;
+
+    const { x, y } = pointerPosition;
+    carriedStack.style.transform = `translate3d(${x + 10}px, ${y + 10}px, 0)`;
+  }, []);
+
+  const scheduleCarriedStackPosition = useCallback(() => {
+    if (cursorAnimationFrameRef.current) return;
+    cursorAnimationFrameRef.current = window.requestAnimationFrame(
+      applyCarriedStackPosition,
+    );
+  }, [applyCarriedStackPosition]);
+
   const moveCursorToEvent = (event) => {
-    setCursorPosition({ x: event.clientX, y: event.clientY });
+    if (
+      typeof event.clientX !== "number" ||
+      typeof event.clientY !== "number"
+    ) {
+      return;
+    }
+
+    pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+    if (!hasPointerPositionRef.current) {
+      hasPointerPositionRef.current = true;
+      setHasPointerPosition(true);
+    }
+    scheduleCarriedStackPosition();
   };
 
   const handleMouseMove = moveCursorToEvent;
+  const handlePointerMove = moveCursorToEvent;
   const updateCursorPosition = moveCursorToEvent;
 
   useEffect(() => {
     const handleWindowPointerMove = (event) => {
-      setCursorPosition({ x: event.clientX, y: event.clientY });
+      pointerPositionRef.current = { x: event.clientX, y: event.clientY };
+      if (!hasPointerPositionRef.current) {
+        hasPointerPositionRef.current = true;
+        setHasPointerPosition(true);
+      }
+      scheduleCarriedStackPosition();
     };
 
     window.addEventListener("pointermove", handleWindowPointerMove);
@@ -139,8 +178,11 @@ export default function InventoryPanel({
     return () => {
       window.removeEventListener("pointermove", handleWindowPointerMove);
       window.removeEventListener("mousemove", handleWindowPointerMove);
+      if (cursorAnimationFrameRef.current) {
+        window.cancelAnimationFrame(cursorAnimationFrameRef.current);
+      }
     };
-  }, []);
+  }, [scheduleCarriedStackPosition]);
 
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
@@ -161,12 +203,21 @@ export default function InventoryPanel({
       ? document.fullscreenElement ?? document.body
       : null);
 
+  useLayoutEffect(() => {
+    applyCarriedStackPosition();
+  }, [
+    applyCarriedStackPosition,
+    cursorStack,
+    hasPointerPosition,
+    overlayTarget,
+  ]);
+
   const carriedOverlay =
-    cursorStack && overlayTarget
+    cursorStack && overlayTarget && hasPointerPosition
       ? createPortal(
           <div
+            ref={carriedStackRef}
             className="carried-stack"
-            style={{ left: cursorPosition.x, top: cursorPosition.y }}
             aria-hidden="true"
           >
             {renderInventorySwatch(ITEMS[cursorStack.itemId])}
@@ -180,8 +231,10 @@ export default function InventoryPanel({
     <div
       className={`panel inventory-panel ${onClose ? "is-overlay" : ""}`}
       onMouseMove={handleMouseMove}
+      onPointerMove={handlePointerMove}
       onMouseDown={updateCursorPosition}
       onPointerDown={updateCursorPosition}
+      onClick={updateCursorPosition}
     >
       {onClose && (
         <div className="inventory-title-row">

@@ -651,12 +651,15 @@ button {
 
 .carried-stack {
   position: fixed;
+  left: 0;
+  top: 0;
   z-index: 2147483647;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
+  transform: translate3d(-100vw, -100vh, 0);
+  will-change: transform;
   pointer-events: none;
   overflow: visible;
   border: 2px solid rgba(17, 24, 39, 0.9);
