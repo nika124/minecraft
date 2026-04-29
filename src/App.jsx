@@ -115,6 +115,8 @@ export default function MinecraftInspiredWebGame() {
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
   const helpOpenRef = useRef(false);
+  const inventoryOpenRef = useRef(false);
+  const carriedPlaceableRef = useRef(null);
   const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
 
   const [selected, setSelected] = useState(1);
@@ -126,6 +128,8 @@ export default function MinecraftInspiredWebGame() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [carriedPlaceableIndex, setCarriedPlaceableIndex] = useState(null);
   const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_SETTINGS);
   const [worldSeed, setWorldSeed] = useState(1);
 
@@ -158,6 +162,14 @@ export default function MinecraftInspiredWebGame() {
   }, [isHelpOpen]);
 
   useEffect(() => {
+    inventoryOpenRef.current = isInventoryOpen;
+  }, [isInventoryOpen]);
+
+  useEffect(() => {
+    carriedPlaceableRef.current = carriedPlaceableIndex;
+  }, [carriedPlaceableIndex]);
+
+  useEffect(() => {
     settingsRef.current = gameSettings;
   }, [gameSettings]);
 
@@ -171,14 +183,69 @@ export default function MinecraftInspiredWebGame() {
     };
   }, []);
 
-  const selectBlock = useCallback(
-    (slotIndex) => {
-      const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
+  const assignBlockToHotbar = useCallback(
+    (placeableIndex, slotIndex) => {
+      const item = PLACEABLE[placeableIndex];
       if (!item) return;
+
+      setBlockHotbar((current) =>
+        current.map((value, index) =>
+          index === slotIndex ? placeableIndex : value,
+        ),
+      );
       setSelected(slotIndex);
+      setCarriedPlaceableIndex(null);
       showSelectionHint(item, "foreground");
+      setStats((current) => ({
+        ...current,
+        message: `Assigned ${item.name} to hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+      }));
     },
     [showSelectionHint],
+  );
+
+  const clearHotbarSlot = useCallback((slotIndex) => {
+    const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
+    setBlockHotbar((current) =>
+      current.map((value, index) => (index === slotIndex ? null : value)),
+    );
+    setCarriedPlaceableIndex(null);
+    if (item) {
+      setStats((current) => ({
+        ...current,
+        message: `Removed ${item.name} from hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+      }));
+    }
+  }, []);
+
+  const swapHotbarSlots = useCallback((fromSlot, toSlot) => {
+    if (fromSlot === toSlot) return;
+    setBlockHotbar((current) => {
+      const next = [...current];
+      [next[fromSlot], next[toSlot]] = [next[toSlot], next[fromSlot]];
+      return next;
+    });
+    setSelected(toSlot);
+    setCarriedPlaceableIndex(null);
+    setStats((current) => ({
+      ...current,
+      message: `Swapped hotbar slots ${fromSlot === 9 ? "0" : fromSlot + 1} and ${toSlot === 9 ? "0" : toSlot + 1}.`,
+    }));
+  }, []);
+
+  const selectBlock = useCallback(
+    (slotIndex) => {
+      const carriedIndex = carriedPlaceableRef.current;
+      if (carriedIndex !== null) {
+        assignBlockToHotbar(carriedIndex, slotIndex);
+        return;
+      }
+
+      const item = PLACEABLE[blockHotbarRef.current[slotIndex]];
+      setSelected(slotIndex);
+      if (item) showSelectionHint(item, "foreground");
+    },
+    [assignBlockToHotbar, showSelectionHint],
   );
 
   const chooseInventoryBlock = useCallback(
@@ -186,23 +253,11 @@ export default function MinecraftInspiredWebGame() {
       const item = PLACEABLE[placeableIndex];
       if (!item) return;
 
-      const existingSlot = blockHotbarRef.current.indexOf(placeableIndex);
-      if (existingSlot !== -1) {
-        setSelected(existingSlot);
-        showSelectionHint(item, "foreground");
-        return;
-      }
-
-      const targetSlot = selectedRef.current;
-      setBlockHotbar((current) =>
-        current.map((value, index) =>
-          index === targetSlot ? placeableIndex : value,
-        ),
-      );
+      setCarriedPlaceableIndex(placeableIndex);
       showSelectionHint(item, "foreground");
       setStats((current) => ({
         ...current,
-        message: `Moved ${item.name} into hotbar slot ${targetSlot === 9 ? "0" : targetSlot + 1}.`,
+        message: `Picked up ${item.name}. Click a hotbar slot or press 1-0 to assign it.`,
       }));
     },
     [showSelectionHint],
@@ -316,6 +371,17 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     const handleKeyDown = (event) => {
       const key = event.key.toLowerCase();
+
+      if (
+        inventoryOpenRef.current &&
+        key !== "i" &&
+        key !== "escape" &&
+        !/^[0-9]$/.test(key)
+      ) {
+        event.preventDefault();
+        return;
+      }
+
       keysRef.current[key] = true;
 
       if (key === "f1") {
@@ -334,8 +400,15 @@ export default function MinecraftInspiredWebGame() {
       pressedRef.current[key] = true;
 
       if (/^[0-9]$/.test(key)) {
+        event.preventDefault();
         const index = key === "0" ? 9 : Number(key) - 1;
-        if (buildModeRef.current === "background") {
+        if (
+          inventoryOpenRef.current &&
+          carriedPlaceableRef.current !== null &&
+          index < HOTBAR_SLOT_COUNT
+        ) {
+          selectBlock(index);
+        } else if (buildModeRef.current === "background") {
           if (index < WALL_PLACEABLE.length) selectWall(index);
         } else if (index < HOTBAR_SLOT_COUNT) {
           selectBlock(index);
@@ -346,9 +419,23 @@ export default function MinecraftInspiredWebGame() {
         toggleBuildMode();
       }
 
+      if (key === "i") {
+        event.preventDefault();
+        setIsInventoryOpen((current) => {
+          if (current) setCarriedPlaceableIndex(null);
+          if (!current) keysRef.current = {};
+          return !current;
+        });
+      }
+
       if (key === "h") fillHouseBackground();
       if (key === "p") setIsPaused((current) => !current);
       if (key === "escape") {
+        if (isInventoryOpen) {
+          setIsInventoryOpen(false);
+          setCarriedPlaceableIndex(null);
+          return;
+        }
         setIsHelpOpen(false);
         setIsPaused(true);
       }
@@ -373,7 +460,7 @@ export default function MinecraftInspiredWebGame() {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("contextmenu", preventContext);
     };
-  }, [selectBlock, selectWall]);
+  }, [isInventoryOpen, selectBlock, selectWall]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -391,6 +478,29 @@ export default function MinecraftInspiredWebGame() {
     const handleMouseDown = (event) => {
       event.preventDefault();
       setMouseFromEvent(event);
+
+      if (inventoryOpenRef.current) {
+        const slot = 48;
+        const gap = 6;
+        const count = HOTBAR_SLOT_COUNT;
+        const totalW = count * slot + (count - 1) * gap;
+        const startX = (VIEW_W - totalW) / 2;
+        const y = VIEW_H - 62;
+        const slotIndex = Array.from({ length: count }, (_, index) => {
+          const x = startX + index * (slot + gap);
+          return mouseRef.current.x >= x &&
+            mouseRef.current.x <= x + slot &&
+            mouseRef.current.y >= y &&
+            mouseRef.current.y <= y + slot
+            ? index
+            : -1;
+        }).find((index) => index !== -1);
+
+        if (slotIndex !== undefined && carriedPlaceableRef.current !== null) {
+          selectBlock(slotIndex);
+        }
+        return;
+      }
 
       if (pausedRef.current) {
         const button = menuButtonsRef.current.find(
@@ -427,7 +537,7 @@ export default function MinecraftInspiredWebGame() {
       uiCanvas.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, []);
+  }, [selectBlock]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -970,9 +1080,15 @@ export default function MinecraftInspiredWebGame() {
       }
 
       if (mouse.button === 2) {
-        const placeBlock =
-          PLACEABLE[blockHotbarRef.current[selectedRef.current]] ??
-          BLOCKS.dirt;
+        const placeBlock = PLACEABLE[blockHotbarRef.current[selectedRef.current]];
+        if (!placeBlock) {
+          setStats((current) => ({
+            ...current,
+            message: "That hotbar slot is empty.",
+          }));
+          mineCooldown = 0.14;
+          return;
+        }
         const px = worldX * TILE;
         const py = worldY * TILE;
         const touchingPlayer = !(
@@ -1428,6 +1544,7 @@ export default function MinecraftInspiredWebGame() {
         ["Left click", "Mine block or remove wall"],
         ["Right click", "Place block or wall"],
         ["1-0", "Select hotbar item"],
+        ["I", "Open or close inventory"],
         ["B", "Switch foreground/background"],
         ["H", "Fill background wall near player"],
         ["F", "Toggle fullscreen"],
@@ -1492,8 +1609,7 @@ export default function MinecraftInspiredWebGame() {
       const heldItem =
         buildModeRef.current === "background"
           ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
-          : (PLACEABLE[blockHotbarRef.current[selectedRef.current]] ??
-            BLOCKS.dirt);
+          : PLACEABLE[blockHotbarRef.current[selectedRef.current]];
       const dayCycleSpeed = 0.018;
       const settings = settingsRef.current;
       const cycledDay = (Math.sin(skyTime * dayCycleSpeed) + 1) / 2;
@@ -1943,19 +2059,32 @@ export default function MinecraftInspiredWebGame() {
               onUpdateSetting={updateGameSetting}
             />
           )}
+          {isInventoryOpen && (
+            <>
+              <div className="inventory-backdrop" aria-hidden="true" />
+              <InventoryPanel
+                buildMode={buildMode}
+                selected={selected}
+                selectedWall={selectedWall}
+                blockHotbar={blockHotbar}
+                onSelectHotbarSlot={selectBlock}
+                onChooseInventoryBlock={chooseInventoryBlock}
+                onAssignInventoryBlock={assignBlockToHotbar}
+                onClearHotbarSlot={clearHotbarSlot}
+                onSwapHotbarSlots={swapHotbarSlots}
+                onSelectWall={selectWall}
+                onSetForegroundMode={() => setBuildMode("foreground")}
+                onSetBackgroundMode={() => setBuildMode("background")}
+                carriedPlaceableIndex={carriedPlaceableIndex}
+                onClose={() => {
+                  setIsInventoryOpen(false);
+                  setCarriedPlaceableIndex(null);
+                }}
+              />
+            </>
+          )}
         </GameStage>
         <section className="game-panels">
-          <InventoryPanel
-            buildMode={buildMode}
-            selected={selected}
-            selectedWall={selectedWall}
-            blockHotbar={blockHotbar}
-            onSelectHotbarSlot={selectBlock}
-            onChooseInventoryBlock={chooseInventoryBlock}
-            onSelectWall={selectWall}
-            onSetForegroundMode={() => setBuildMode("foreground")}
-            onSetBackgroundMode={() => setBuildMode("background")}
-          />
           <ControlsPanel stats={stats} />
         </section>
       </div>

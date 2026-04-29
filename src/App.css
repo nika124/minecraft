@@ -153,6 +153,91 @@ button {
   cursor: crosshair;
 }
 
+.inventory-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.inventory-panel.is-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 5;
+  width: min(860px, calc(100% - 40px));
+  max-height: calc(100% - 74px);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  border: 4px solid #111827;
+  border-radius: 4px;
+  color: #1f2937;
+  background: #c6c6c6;
+  box-shadow:
+    inset 3px 3px 0 #ffffff,
+    inset -3px -3px 0 #555555,
+    0 20px 50px rgba(0, 0, 0, 0.45);
+  backdrop-filter: none;
+  user-select: none;
+}
+
+.inventory-panel.is-overlay .mode-tabs {
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.inventory-panel.is-overlay .mode-label,
+.inventory-panel.is-overlay .mode-tab,
+.inventory-panel.is-overlay .inventory-close,
+.inventory-panel.is-overlay .palette-item,
+.inventory-panel.is-overlay .hotbar-editor-slot {
+  border-radius: 0;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  image-rendering: pixelated;
+}
+
+.inventory-title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+
+.inventory-title-row span {
+  display: block;
+  color: #111827;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.inventory-title-row small {
+  display: block;
+  margin-top: 3px;
+  color: #374151;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.inventory-close {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 2px solid #111827;
+  color: #111827;
+  background: #a3a3a3;
+  cursor: pointer;
+  font-weight: 900;
+  box-shadow:
+    inset 2px 2px 0 #eeeeee,
+    inset -2px -2px 0 #555555;
+}
+
+.inventory-close:hover {
+  background: #b8b8b8;
+}
+
 .game-settings-overlay {
   position: absolute;
   top: 16px;
@@ -304,8 +389,44 @@ button {
   background: #67e8f9;
 }
 
+.inventory-panel.is-overlay .mode-label {
+  color: #111827;
+  background: transparent;
+}
+
+.inventory-panel.is-overlay .mode-tab {
+  border: 2px solid #111827;
+  color: #111827;
+  background: #8f8f8f;
+  box-shadow:
+    inset 2px 2px 0 #eeeeee,
+    inset -2px -2px 0 #555555;
+}
+
+.inventory-panel.is-overlay .mode-tab.is-active {
+  color: #111827;
+  border-color: #111827;
+  background: #e5e5e5;
+}
+
 .palette-grid {
   align-items: stretch;
+}
+
+.inventory-panel.is-overlay .palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+}
+
+.inventory-panel.is-overlay .inventory-items-grid {
+  min-height: 176px;
+  padding: 8px;
+  border: 2px solid #111827;
+  background: #a0a0a0;
+  box-shadow:
+    inset 2px 2px 0 #5f5f5f,
+    inset -2px -2px 0 #f5f5f5;
 }
 
 .inventory-section-heading {
@@ -328,11 +449,36 @@ button {
   text-align: right;
 }
 
+.inventory-panel.is-overlay .inventory-section-heading {
+  margin: 10px 0 6px;
+}
+
+.inventory-panel.is-overlay .inventory-section-heading span {
+  color: #111827;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+}
+
+.inventory-panel.is-overlay .inventory-section-heading small {
+  color: #4b5563;
+}
+
 .hotbar-editor {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 14px;
+}
+
+.inventory-panel.is-overlay .hotbar-editor {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 8px;
+  border: 2px solid #111827;
+  background: #a0a0a0;
+  box-shadow:
+    inset 2px 2px 0 #5f5f5f,
+    inset -2px -2px 0 #f5f5f5;
 }
 
 .hotbar-editor-slot {
@@ -355,6 +501,26 @@ button {
     background 160ms ease;
 }
 
+.inventory-panel.is-overlay .hotbar-editor-slot {
+  aspect-ratio: 1;
+  min-height: 64px;
+  padding: 6px;
+  border: 2px solid #111827;
+  color: #111827;
+  background: #8b8b8b;
+  box-shadow:
+    inset 2px 2px 0 #565656,
+    inset -2px -2px 0 #f2f2f2;
+}
+
+.inventory-panel.is-overlay .hotbar-editor-slot > span:last-child {
+  display: none;
+}
+
+.inventory-panel.is-overlay .hotbar-editor-slot.is-empty {
+  background: #737373;
+}
+
 .hotbar-editor-slot:hover {
   transform: translateY(-1px);
   border-color: rgba(134, 239, 172, 0.55);
@@ -366,6 +532,21 @@ button {
   border-color: #86efac;
   background: rgba(34, 197, 94, 0.22);
   box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.32);
+}
+
+.inventory-panel.is-overlay .hotbar-editor-slot:hover,
+.inventory-panel.is-overlay .hotbar-editor-slot.is-selected {
+  transform: none;
+  border-color: #ffffff;
+  background: #9f9f9f;
+  box-shadow:
+    inset 2px 2px 0 #3f3f3f,
+    inset -2px -2px 0 #ffffff,
+    0 0 0 2px #111827;
+}
+
+.inventory-panel.is-overlay .hotbar-editor-slot.is-empty:not(.is-selected):hover {
+  background: #858585;
 }
 
 .slot-key {
@@ -387,9 +568,48 @@ button {
   text-align: left;
 }
 
+.inventory-panel.is-overlay .palette-item {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 78px;
+  padding: 7px 5px;
+  border: 2px solid #111827;
+  color: #111827;
+  background: #8b8b8b;
+  box-shadow:
+    inset 2px 2px 0 #565656,
+    inset -2px -2px 0 #f2f2f2;
+  text-align: center;
+  user-select: none;
+  -webkit-user-drag: element;
+}
+
 .palette-item.is-selected {
   border-color: #86efac;
   background: rgba(34, 197, 94, 0.18);
+}
+
+.inventory-panel.is-overlay .palette-item.is-selected {
+  border-color: #ffffff;
+  background: #9f9f9f;
+}
+
+.palette-item.is-carried {
+  border-color: #ffffff;
+  background: #d9d9d9;
+  box-shadow:
+    inset 2px 2px 0 #ffffff,
+    inset -2px -2px 0 #666666,
+    0 0 0 2px #111827;
+}
+
+.empty-slot {
+  width: 34px;
+  height: 34px;
+  border: 2px dashed rgba(17, 24, 39, 0.45);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .palette-item.is-wall.is-selected {
@@ -406,6 +626,13 @@ button {
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2);
 }
 
+.inventory-panel.is-overlay .swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
+  pointer-events: none;
+}
+
 .texture-swatch {
   image-rendering: pixelated;
   background-size: 100% 100%;
@@ -419,10 +646,21 @@ button {
   font-weight: 900;
 }
 
+.inventory-panel.is-overlay .palette-copy span {
+  color: #111827;
+  font-size: 0.68rem;
+  line-height: 1.05;
+  pointer-events: none;
+}
+
 .palette-copy small {
   display: block;
   color: #94a3b8;
   font-size: 0.74rem;
+}
+
+.inventory-panel.is-overlay .palette-copy small {
+  display: none;
 }
 
 .side-panel h2 {
@@ -511,6 +749,24 @@ button {
   .control-grid {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .inventory-panel.is-overlay {
+    top: 50%;
+    width: calc(100% - 20px);
+    max-height: calc(100% - 20px);
+  }
+
+  .inventory-title-row {
+    align-items: stretch;
+  }
+
+  .hotbar-editor {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inventory-panel.is-overlay .hotbar-editor {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .action-button,

@@ -4,6 +4,7 @@ const CONTROLS = [
   ["W / Space", "Jump"],
   ["Left click", "Mine/remove"],
   ["Right click", "Build/place"],
+  ["I", "Inventory"],
   ["B", "Block/wall mode"],
   ["H", "Fill house wall"],
   ["F", "Fullscreen"],
