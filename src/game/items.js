@@ -16,13 +16,13 @@ export const ITEMS = {
   planks: {
     id: "planks",
     name: "Planks",
-    category: "material",
-    color: "#c08445",
+    category: "block",
+    blockId: BLOCKS.planks.id,
   },
   sticks: {
     id: "sticks",
-    name: "Sticks",
-    category: "material",
+    name: "Stick",
+    category: "tool",
     color: "#8b552c",
   },
   dirt: {
@@ -52,8 +52,8 @@ export const ITEMS = {
   coal: {
     id: "coal",
     name: "Coal",
-    category: "material",
-    color: "#1f2937",
+    category: "block",
+    blockId: BLOCKS.coal.id,
   },
   torch: {
     id: "torch",

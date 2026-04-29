@@ -482,7 +482,10 @@ export function mineOrPlace({
     if (placeBlock.kind === "tool") {
       setStats((current) => ({
         ...current,
-        message: `${placeBlock.name}s are for mining, not placing.`,
+        message:
+          placeBlock.id === "sticks"
+            ? "Stick cannot be placed."
+            : `${placeBlock.name}s are for mining, not placing.`,
       }));
       return 0.14;
     }

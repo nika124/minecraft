@@ -12,6 +12,8 @@ const BLOCK_DROPS = {
   [BLOCKS.brick.id]: [{ itemId: "brick", amount: 1 }],
   [BLOCKS.glass.id]: [{ itemId: "glass", amount: 1 }],
   [BLOCKS.workbench.id]: [{ itemId: "workbench", amount: 1 }],
+  [BLOCKS.planks.id]: [{ itemId: "planks", amount: 1 }],
+  [BLOCKS.coal.id]: [{ itemId: "coal", amount: 1 }],
 };
 
 const WALL_DROPS = {

@@ -114,6 +114,22 @@ export const BLOCKS = {
     hardness: 0.6,
     miningType: "axe",
   },
+  planks: {
+    id: 14,
+    name: "Planks",
+    solid: true,
+    color: "#c08445",
+    hardness: 0.55,
+    miningType: "axe",
+  },
+  coal: {
+    id: 15,
+    name: "Coal",
+    solid: true,
+    color: "#1f2937",
+    hardness: 1.1,
+    miningType: "pickaxe",
+  },
 };
 
 export const WALLS = {
@@ -189,9 +205,21 @@ export const PLACEABLE = [
   BLOCKS.water,
   BLOCKS.ore,
   BLOCKS.workbench,
+  BLOCKS.planks,
+  BLOCKS.coal,
 ];
 
 export const TOOLS = [
+  {
+    id: "sticks",
+    kind: "tool",
+    name: "Stick",
+    miningTool: "stick",
+    miningSpeed: 1.1,
+    effectiveMultiplier: 1,
+    color: "#8b552c",
+    accent: "#c08445",
+  },
   {
     id: "woodenShovel",
     kind: "tool",

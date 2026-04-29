@@ -63,6 +63,47 @@ function drawWood(ctx) {
   drawBevel(ctx, "rgba(255,210,150,.08)", "rgba(0,0,0,.28)");
 }
 
+function drawPlanks(ctx) {
+  fillBase(ctx, "#c08445");
+
+  ctx.fillStyle = "#d69b5b";
+  ctx.fillRect(0, 0, TILE, 7);
+  ctx.fillRect(0, 16, TILE, 8);
+  ctx.fillStyle = "#a86633";
+  ctx.fillRect(0, 8, TILE, 8);
+  ctx.fillRect(0, 25, TILE, 7);
+
+  ctx.strokeStyle = "rgba(65, 32, 12, .58)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 8);
+  ctx.lineTo(TILE, 8);
+  ctx.moveTo(0, 16);
+  ctx.lineTo(TILE, 16);
+  ctx.moveTo(0, 25);
+  ctx.lineTo(TILE, 25);
+  ctx.moveTo(12, 0);
+  ctx.lineTo(12, 8);
+  ctx.moveTo(23, 8);
+  ctx.lineTo(23, 16);
+  ctx.moveTo(9, 16);
+  ctx.lineTo(9, 25);
+  ctx.moveTo(21, 25);
+  ctx.lineTo(21, TILE);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 226, 170, .3)";
+  ctx.fillRect(3, 3, 7, 2);
+  ctx.fillRect(15, 18, 9, 2);
+  ctx.fillRect(4, 27, 11, 2);
+  ctx.fillStyle = "rgba(60, 28, 10, .22)";
+  ctx.fillRect(18, 5, 7, 2);
+  ctx.fillRect(4, 12, 9, 2);
+  ctx.fillRect(24, 20, 5, 2);
+
+  drawBevel(ctx, "rgba(255,220,160,.14)", "rgba(0,0,0,.26)");
+}
+
 function drawLeaves(ctx) {
   fillBase(ctx, "#2f8f45");
 
@@ -158,6 +199,32 @@ function drawOre(ctx) {
   ctx.fillRect(21, 16, 2, 2);
 }
 
+function drawCoal(ctx) {
+  fillBase(ctx, "#1f2937");
+  speckles(ctx, ["#111827", "#293241", "#374151", "#0b1120"], 60, 170, 2, 4);
+
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(3, 4, 10, 8);
+  ctx.fillRect(17, 2, 11, 10);
+  ctx.fillRect(7, 16, 12, 11);
+  ctx.fillRect(21, 18, 8, 9);
+
+  ctx.fillStyle = "#374151";
+  ctx.fillRect(6, 5, 5, 2);
+  ctx.fillRect(19, 4, 6, 2);
+  ctx.fillRect(10, 17, 6, 3);
+  ctx.fillRect(23, 19, 4, 2);
+
+  ctx.fillStyle = "#6b7280";
+  ctx.fillRect(7, 5, 2, 1);
+  ctx.fillRect(20, 4, 2, 1);
+  ctx.fillRect(12, 17, 3, 1);
+  ctx.fillRect(24, 19, 2, 1);
+
+  drawStoneCracks(ctx, 185, 0.1);
+  drawBevel(ctx, "rgba(255,255,255,.07)", "rgba(0,0,0,.42)");
+}
+
 function drawTorch(ctx) {
   ctx.clearRect(0, 0, TILE, TILE);
   ctx.fillStyle = "#6b3f1d";
@@ -238,11 +305,13 @@ const BLOCK_DRAWERS = {
   [BLOCKS.dirt.id]: drawDirt,
   [BLOCKS.stone.id]: drawStone,
   [BLOCKS.wood.id]: drawWood,
+  [BLOCKS.planks.id]: drawPlanks,
   [BLOCKS.leaves.id]: drawLeaves,
   [BLOCKS.sand.id]: drawSand,
   [BLOCKS.brick.id]: drawBrick,
   [BLOCKS.glass.id]: drawGlass,
   [BLOCKS.ore.id]: drawOre,
+  [BLOCKS.coal.id]: drawCoal,
   [BLOCKS.torch.id]: drawTorch,
   [BLOCKS.water.id]: drawWater,
   [BLOCKS.bedrock.id]: drawBedrock,

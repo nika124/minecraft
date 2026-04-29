@@ -191,7 +191,39 @@ function drawAxe(ctx) {
   ctx.fillRect(20, 13, 4, 6);
 }
 
+function drawStick(ctx) {
+  ctx.strokeStyle = "rgba(45,24,12,.95)";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "square";
+  ctx.beginPath();
+  ctx.moveTo(8, 27);
+  ctx.lineTo(24, 9);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#8b552c";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(8, 27);
+  ctx.lineTo(24, 9);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#c08445";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(10, 25);
+  ctx.lineTo(22, 11);
+  ctx.stroke();
+
+  ctx.fillStyle = "#5a2f17";
+  ctx.fillRect(6, 25, 5, 4);
+  ctx.fillRect(22, 8, 4, 4);
+  ctx.fillStyle = "#d69b5b";
+  ctx.fillRect(13, 20, 2, 2);
+  ctx.fillRect(18, 14, 2, 2);
+}
+
 const ITEM_DRAWERS = {
+  stick: drawStick,
   shovel: drawShovel,
   pickaxe: drawPickaxe,
   axe: drawAxe,

@@ -2,7 +2,14 @@ export const MINING_TOOLS = {
   hand: {
     id: "hand",
     name: "Hand",
-    speed: 1,
+    speed: 100,
+    effectiveOn: [],
+    effectiveMultiplier: 1,
+  },
+  stick: {
+    id: "stick",
+    name: "Stick",
+    speed: 1.1,
     effectiveOn: [],
     effectiveMultiplier: 1,
   },
