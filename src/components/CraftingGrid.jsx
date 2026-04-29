@@ -9,6 +9,7 @@ export default function CraftingGrid({
   output,
   renderItem,
   onSlotMouseDown,
+  onSlotMouseEnter,
   onOutputMouseDown,
 }) {
   return (
@@ -30,6 +31,9 @@ export default function CraftingGrid({
               onMouseDown={(event) =>
                 onSlotMouseDown(index, event.button, event.ctrlKey)
               }
+              onMouseEnter={(event) =>
+                onSlotMouseEnter?.(index, event.buttons, event.ctrlKey)
+              }
             />
           ))}
         </div>
@@ -41,7 +45,7 @@ export default function CraftingGrid({
           label=""
           output
           renderItem={renderItem}
-          onMouseDown={(event) => onOutputMouseDown(event.button)}
+          onMouseDown={(event) => onOutputMouseDown(event.button, event.ctrlKey)}
         />
       </div>
     </div>

@@ -84,6 +84,21 @@ export function placeIntoCraftingSlot(slotStack, cursorStack, { placeFull = fals
   const slot = cloneStack(slotStack);
   const cursor = cloneStack(cursorStack);
 
+  if (button === MOUSE_BUTTON.RIGHT && slot) {
+    if (cursor && cursor.itemId !== slot.itemId) {
+      return { slot, cursor };
+    }
+
+    const nextSlotAmount = slot.amount - 1;
+    return {
+      slot: nextSlotAmount > 0 ? { ...slot, amount: nextSlotAmount } : null,
+      cursor: {
+        itemId: slot.itemId,
+        amount: (cursor?.amount ?? 0) + 1,
+      },
+    };
+  }
+
   if (!cursor) return clickStackSlot(slot, null, button);
 
   if (slot && slot.itemId !== cursor.itemId) {
@@ -96,6 +111,24 @@ export function placeIntoCraftingSlot(slotStack, cursorStack, { placeFull = fals
 
   return {
     slot: { itemId: cursor.itemId, amount: nextSlotAmount },
+    cursor:
+      nextCursorAmount > 0
+        ? { itemId: cursor.itemId, amount: nextCursorAmount }
+        : null,
+  };
+}
+
+export function placeIntoItemCountSlot(itemId, count, cursorStack, { placeFull = false } = {}) {
+  const cursor = cloneStack(cursorStack);
+  if (!cursor || cursor.itemId !== itemId) {
+    return { amount: count, cursor };
+  }
+
+  const amountToPlace = placeFull ? cursor.amount : 1;
+  const nextCursorAmount = cursor.amount - amountToPlace;
+
+  return {
+    amount: count + amountToPlace,
     cursor:
       nextCursorAmount > 0
         ? { itemId: cursor.itemId, amount: nextCursorAmount }

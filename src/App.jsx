@@ -11,6 +11,7 @@ import {
   MOUSE_BUTTON,
   clickInventoryCount,
   placeIntoCraftingSlot,
+  placeIntoItemCountSlot,
 } from "./game/slotInteractions";
 import {
   BLOCK_BY_ID,
@@ -122,6 +123,9 @@ export default function MinecraftInspiredWebGame() {
   const inventoryCraftingGridRef = useRef(Array(4).fill(null));
   const workbenchCraftingGridRef = useRef(Array(9).fill(null));
   const cursorStackRef = useRef(null);
+  const paintedSlotIdsRef = useRef(new Set());
+  const isPaintingRef = useRef(false);
+  const pickedUpDuringMouseDownRef = useRef(false);
   const droppedItemsRef = useRef([]);
   const particlesRef = useRef([]);
   const miningRef = useRef({
@@ -403,23 +407,38 @@ export default function MinecraftInspiredWebGame() {
   }, []);
 
   const handleInventorySlotMouseDown = useCallback(
-    (itemId, button) => {
+    (itemId, button, ctrlKey = false, isMouseDownEvent = true) => {
       const count = getItemCount(inventoryRef, itemId);
-      const next = clickInventoryCount(
-        itemId,
-        count,
-        cursorStackRef.current,
-        button,
-      );
+      const hasCursor = Boolean(cursorStackRef.current?.amount);
+      const next =
+        hasCursor && (button === MOUSE_BUTTON.LEFT || button === MOUSE_BUTTON.RIGHT)
+          ? placeIntoItemCountSlot(itemId, count, cursorStackRef.current, {
+              placeFull: ctrlKey,
+            })
+          : clickInventoryCount(
+              itemId,
+              count,
+              cursorStackRef.current,
+              button,
+            );
 
-      if (next.inventoryAmount > count) {
-        addItem(inventoryRef, itemId, next.inventoryAmount - count);
-      } else if (next.inventoryAmount < count) {
-        removeItem(inventoryRef, itemId, count - next.inventoryAmount);
+      const nextAmount = next.inventoryAmount ?? next.amount;
+      if (nextAmount > count) {
+        addItem(inventoryRef, itemId, nextAmount - count);
+      } else if (nextAmount < count) {
+        removeItem(inventoryRef, itemId, count - nextAmount);
       }
 
       if (next.displacedStack) {
         addItem(inventoryRef, next.displacedStack.itemId, next.displacedStack.amount);
+      }
+
+      if (hasCursor) {
+        isPaintingRef.current = true;
+        paintedSlotIdsRef.current.add(`inventory:${itemId}`);
+      } else if (isMouseDownEvent && next.cursor?.amount) {
+        pickedUpDuringMouseDownRef.current = true;
+        paintedSlotIdsRef.current.add(`inventory:${itemId}`);
       }
 
       cursorStackRef.current = next.cursor;
@@ -430,8 +449,40 @@ export default function MinecraftInspiredWebGame() {
     [publishCraftingState, publishInventory],
   );
 
+  const handleInventorySlotMouseEnter = useCallback(
+    (itemId, buttons, ctrlKey = false) => {
+      if (!cursorStackRef.current?.amount || (buttons & 1) !== 1) return;
+      const slotId = `inventory:${itemId}`;
+      if (paintedSlotIdsRef.current.has(slotId)) return;
+      paintedSlotIdsRef.current.add(slotId);
+
+      const count = getItemCount(inventoryRef, itemId);
+      const beforeCursorAmount = cursorStackRef.current.amount;
+      const next = placeIntoItemCountSlot(itemId, count, cursorStackRef.current, {
+        placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
+      });
+
+      if (next.amount > count) {
+        addItem(inventoryRef, itemId, next.amount - count);
+      } else if (next.amount < count) {
+        removeItem(inventoryRef, itemId, count - next.amount);
+      }
+
+      cursorStackRef.current = next.cursor;
+      if ((next.cursor?.amount ?? 0) !== beforeCursorAmount) {
+        pickedUpDuringMouseDownRef.current = false;
+      }
+      isPaintingRef.current = true;
+      publishInventory();
+      publishCraftingState();
+      setCarriedPlaceableIndex(null);
+    },
+    [publishCraftingState, publishInventory],
+  );
+
   const handleHotbarSlotMouseDown = useCallback(
-    (slotIndex, button) => {
+    (slotIndex, button, ctrlKey = false) => {
+      void ctrlKey;
       const cursor = cursorStackRef.current;
       if (cursor?.amount) {
         const foregroundIndex = getForegroundIndexForItem(cursor.itemId);
@@ -445,6 +496,9 @@ export default function MinecraftInspiredWebGame() {
 
         addItem(inventoryRef, cursor.itemId, cursor.amount);
         cursorStackRef.current = null;
+        isPaintingRef.current = true;
+        pickedUpDuringMouseDownRef.current = false;
+        paintedSlotIdsRef.current.add(`hotbar:${slotIndex}`);
         publishInventory();
         publishCraftingState();
         assignBlockToHotbar(foregroundIndex, slotIndex);
@@ -469,6 +523,17 @@ export default function MinecraftInspiredWebGame() {
     ],
   );
 
+  const handleHotbarSlotMouseEnter = useCallback(
+    (slotIndex, buttons, ctrlKey = false) => {
+      if (!cursorStackRef.current?.amount || (buttons & 1) !== 1) return;
+      const slotId = `hotbar:${slotIndex}`;
+      if (paintedSlotIdsRef.current.has(slotId)) return;
+      paintedSlotIdsRef.current.add(slotId);
+      handleHotbarSlotMouseDown(slotIndex, MOUSE_BUTTON.LEFT, ctrlKey);
+    },
+    [handleHotbarSlotMouseDown],
+  );
+
   const activeCraftingGrid = useCallback(() => {
     if (craftingPanelRef.current === "workbench") {
       return {
@@ -491,6 +556,7 @@ export default function MinecraftInspiredWebGame() {
     (slotIndex, button, ctrlKey = false) => {
       const { gridRef } = activeCraftingGrid();
       const grid = [...gridRef.current];
+      const hasCursor = Boolean(cursorStackRef.current?.amount);
       const next = placeIntoCraftingSlot(
         grid[slotIndex],
         cursorStackRef.current,
@@ -500,10 +566,55 @@ export default function MinecraftInspiredWebGame() {
       grid[slotIndex] = next.slot;
       cursorStackRef.current = next.cursor;
       gridRef.current = grid;
+      if (hasCursor) {
+        isPaintingRef.current = true;
+        paintedSlotIdsRef.current.add(`${craftingPanelRef.current}:crafting:${slotIndex}`);
+      } else if (next.cursor?.amount) {
+        pickedUpDuringMouseDownRef.current = true;
+        paintedSlotIdsRef.current.add(`${craftingPanelRef.current}:crafting:${slotIndex}`);
+      }
       publishCraftingState();
     },
     [activeCraftingGrid, publishCraftingState],
   );
+
+  const handleCraftingSlotMouseEnter = useCallback(
+    (slotIndex, buttons, ctrlKey = false) => {
+      if (!cursorStackRef.current?.amount || (buttons & 1) !== 1) return;
+      const slotId = `${craftingPanelRef.current}:crafting:${slotIndex}`;
+      if (paintedSlotIdsRef.current.has(slotId)) return;
+      paintedSlotIdsRef.current.add(slotId);
+
+      const { gridRef } = activeCraftingGrid();
+      const grid = [...gridRef.current];
+      const beforeCursorAmount = cursorStackRef.current.amount;
+      const next = placeIntoCraftingSlot(grid[slotIndex], cursorStackRef.current, {
+        button: MOUSE_BUTTON.LEFT,
+        placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
+      });
+
+      grid[slotIndex] = next.slot;
+      cursorStackRef.current = next.cursor;
+      gridRef.current = grid;
+      if ((next.cursor?.amount ?? 0) !== beforeCursorAmount) {
+        pickedUpDuringMouseDownRef.current = false;
+      }
+      isPaintingRef.current = true;
+      publishCraftingState();
+    },
+    [activeCraftingGrid, publishCraftingState],
+  );
+
+  useEffect(() => {
+    const stopPainting = () => {
+      isPaintingRef.current = false;
+      paintedSlotIdsRef.current = new Set();
+      pickedUpDuringMouseDownRef.current = false;
+    };
+
+    window.addEventListener("mouseup", stopPainting);
+    return () => window.removeEventListener("mouseup", stopPainting);
+  }, []);
 
   const handleCraftingOutputMouseDown = useCallback((button) => {
     if (button !== MOUSE_BUTTON.LEFT) return;
@@ -1156,8 +1267,11 @@ export default function MinecraftInspiredWebGame() {
                   onSelectHotbarSlot={selectBlock}
                   onChooseInventoryBlock={chooseInventoryBlock}
                   onInventorySlotMouseDown={handleInventorySlotMouseDown}
+                  onInventorySlotMouseEnter={handleInventorySlotMouseEnter}
                   onHotbarSlotMouseDown={handleHotbarSlotMouseDown}
+                  onHotbarSlotMouseEnter={handleHotbarSlotMouseEnter}
                   onCraftingSlotMouseDown={handleCraftingSlotMouseDown}
+                  onCraftingSlotMouseEnter={handleCraftingSlotMouseEnter}
                   onCraftingOutputMouseDown={handleCraftingOutputMouseDown}
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}
@@ -1181,8 +1295,11 @@ export default function MinecraftInspiredWebGame() {
                   onSelectHotbarSlot={selectBlock}
                   onChooseInventoryBlock={chooseInventoryBlock}
                   onInventorySlotMouseDown={handleInventorySlotMouseDown}
+                  onInventorySlotMouseEnter={handleInventorySlotMouseEnter}
                   onHotbarSlotMouseDown={handleHotbarSlotMouseDown}
+                  onHotbarSlotMouseEnter={handleHotbarSlotMouseEnter}
                   onCraftingSlotMouseDown={handleCraftingSlotMouseDown}
+                  onCraftingSlotMouseEnter={handleCraftingSlotMouseEnter}
                   onCraftingOutputMouseDown={handleCraftingOutputMouseDown}
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}

@@ -78,8 +78,11 @@ export default function InventoryPanel({
   onSelectHotbarSlot,
   onChooseInventoryBlock,
   onInventorySlotMouseDown,
+  onInventorySlotMouseEnter,
   onHotbarSlotMouseDown,
+  onHotbarSlotMouseEnter,
   onCraftingSlotMouseDown,
+  onCraftingSlotMouseEnter,
   onCraftingOutputMouseDown,
   onAssignInventoryBlock,
   onClearHotbarSlot,
@@ -93,6 +96,7 @@ export default function InventoryPanel({
   onClose,
 }) {
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const [overlayRoot, setOverlayRoot] = useState(null);
   const carriedItem =
     carriedPlaceableIndex === null
       ? null
@@ -118,27 +122,47 @@ export default function InventoryPanel({
     if (type === "hotbar") onSwapHotbarSlots(Number(value), slotIndex);
   };
 
-  const handleMouseMove = (event) => {
+  const moveCursorToEvent = (event) => {
     setCursorPosition({ x: event.clientX, y: event.clientY });
   };
 
-  const updateCursorPosition = (event) => {
-    setCursorPosition({ x: event.clientX, y: event.clientY });
-  };
+  const handleMouseMove = moveCursorToEvent;
+  const updateCursorPosition = moveCursorToEvent;
 
   useEffect(() => {
-    if (!cursorStack) return undefined;
-
-    const handleWindowMouseMove = (event) => {
+    const handleWindowPointerMove = (event) => {
       setCursorPosition({ x: event.clientX, y: event.clientY });
     };
 
-    window.addEventListener("mousemove", handleWindowMouseMove);
-    return () => window.removeEventListener("mousemove", handleWindowMouseMove);
-  }, [cursorStack]);
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("mousemove", handleWindowPointerMove);
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("mousemove", handleWindowPointerMove);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    const updateOverlayRoot = () => {
+      setOverlayRoot(document.fullscreenElement ?? document.body);
+    };
+
+    updateOverlayRoot();
+    document.addEventListener("fullscreenchange", updateOverlayRoot);
+    return () =>
+      document.removeEventListener("fullscreenchange", updateOverlayRoot);
+  }, []);
+
+  const overlayTarget =
+    overlayRoot ??
+    (typeof document !== "undefined"
+      ? document.fullscreenElement ?? document.body
+      : null);
 
   const carriedOverlay =
-    cursorStack && typeof document !== "undefined"
+    cursorStack && overlayTarget
       ? createPortal(
           <div
             className="carried-stack"
@@ -148,7 +172,7 @@ export default function InventoryPanel({
             {renderInventorySwatch(ITEMS[cursorStack.itemId])}
             <span className="item-count">{cursorStack.amount}</span>
           </div>,
-          document.body,
+          overlayTarget,
         )
       : null;
 
@@ -157,6 +181,7 @@ export default function InventoryPanel({
       className={`panel inventory-panel ${onClose ? "is-overlay" : ""}`}
       onMouseMove={handleMouseMove}
       onMouseDown={updateCursorPosition}
+      onPointerDown={updateCursorPosition}
     >
       {onClose && (
         <div className="inventory-title-row">
@@ -217,15 +242,26 @@ export default function InventoryPanel({
                     <button
                       type="button"
                       key={item.id}
-                      draggable={isAssignable && count > 0}
+                      draggable={false}
                       disabled={count <= 0 && !cursorStack}
                       onMouseDown={(event) => {
-                        if (event.button === 2) {
-                          onInventorySlotMouseDown(item.id, event.button);
-                        }
+                        updateCursorPosition(event);
+                        event.preventDefault();
+                        onInventorySlotMouseDown(
+                          item.id,
+                          event.button,
+                          event.ctrlKey,
+                        );
                       }}
+                      onMouseEnter={(event) =>
+                        onInventorySlotMouseEnter?.(
+                          item.id,
+                          event.buttons,
+                          event.ctrlKey,
+                        )
+                      }
                       onContextMenu={(event) => event.preventDefault()}
-                      onClick={() => onInventorySlotMouseDown(item.id, 0)}
+                      onClick={(event) => event.preventDefault()}
                       onDragStart={(event) => {
                         if (!isAssignable || count <= 0) return;
                         onChooseInventoryBlock(foregroundIndex);
@@ -293,6 +329,7 @@ export default function InventoryPanel({
           output={craftingOutput}
           renderItem={renderInventorySwatch}
           onSlotMouseDown={onCraftingSlotMouseDown}
+          onSlotMouseEnter={onCraftingSlotMouseEnter}
           onOutputMouseDown={onCraftingOutputMouseDown}
         />
       </div>
@@ -317,8 +354,22 @@ export default function InventoryPanel({
               type="button"
               key={`${slotIndex}-${item?.id ?? "empty"}`}
               draggable={Boolean(item)}
+              onMouseDown={(event) => {
+                updateCursorPosition(event);
+                if (cursorStack) {
+                  event.preventDefault();
+                  onHotbarSlotMouseDown(slotIndex, event.button, event.ctrlKey);
+                }
+              }}
+              onMouseEnter={(event) =>
+                onHotbarSlotMouseEnter?.(
+                  slotIndex,
+                  event.buttons,
+                  event.ctrlKey,
+                )
+              }
               onClick={() => {
-                if (cursorStack) onHotbarSlotMouseDown(slotIndex, 0);
+                if (cursorStack) return;
                 else onSelectHotbarSlot(slotIndex);
               }}
               onDragStart={(event) => {

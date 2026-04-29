@@ -121,6 +121,10 @@ button {
   background: #020617;
 }
 
+.game-stage:fullscreen {
+  overflow: visible;
+}
+
 .game-stage.is-fullscreen .stage-toolbar {
   display: none;
 }
@@ -647,13 +651,27 @@ button {
 
 .carried-stack {
   position: fixed;
-  z-index: 9999;
+  z-index: 2147483647;
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
   transform: translate(-50%, -50%);
   pointer-events: none;
+  overflow: visible;
+  border: 2px solid rgba(17, 24, 39, 0.9);
+  background: rgba(229, 229, 229, 0.88);
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.85),
+    inset -2px -2px 0 rgba(17, 24, 39, 0.38),
+    0 6px 16px rgba(0, 0, 0, 0.32);
+}
+
+.carried-stack .swatch {
+  display: block;
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
 }
 
 .inventory-panel.is-overlay .palette-item.is-empty-count {

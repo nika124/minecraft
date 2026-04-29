@@ -11,6 +11,7 @@ export default function ItemSlot({
   output = false,
   renderItem,
   onMouseDown,
+  onMouseEnter,
   draggable = false,
   onDragStart,
   onDragOver,
@@ -27,6 +28,7 @@ export default function ItemSlot({
         event.preventDefault();
         onMouseDown?.(event);
       }}
+      onMouseEnter={onMouseEnter}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
