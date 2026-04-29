@@ -1,4 +1,11 @@
-import { BLOCK_BY_ID, BLOCKS, WALLS, WORLD_H, WORLD_W } from "../constants";
+import {
+  BLOCK_BY_ID,
+  BLOCKS,
+  SEA_LEVEL,
+  WALLS,
+  WORLD_H,
+  WORLD_W,
+} from "../constants";
 
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -54,10 +61,11 @@ export function addWater(
   x,
   y,
   level = 0,
+  backdrop = null,
 ) {
   if (!inWorld(x, y)) return;
   world[y][x] = BLOCKS.water.id;
-  walls[y][x] = WALLS.dirtBack.id;
+  walls[y][x] = (backdrop ?? (y >= SEA_LEVEL ? WALLS.deepStoneBack : WALLS.dirtBack)).id;
   waterLevels[y][x] = level;
   if (level === 0) waterSources.add(`${x},${y}`);
 }
@@ -74,7 +82,12 @@ export function fillGroundBelow(
     const depth = y - startY;
     world[y][x] =
       depth < 2 ? BLOCKS.sand.id : depth < 5 ? BLOCKS.dirt.id : BLOCKS.stone.id;
-    walls[y][x] = depth < 5 ? WALLS.dirtBack.id : WALLS.stoneBack.id;
+    walls[y][x] =
+      y >= SEA_LEVEL
+        ? WALLS.deepStoneBack.id
+        : depth < 5
+          ? WALLS.dirtBack.id
+          : WALLS.stoneBack.id;
     clearWaterData(waterLevels, waterSources, x, y);
   }
 }

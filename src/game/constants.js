@@ -1,8 +1,9 @@
 export const TILE = 32;
 export const WORLD_W = 2048;
-export const WORLD_H = 70;
+export const WORLD_H = 84;
 export const VIEW_W = 960;
 export const VIEW_H = 560;
+export const SEA_LEVEL = 55;
 
 export const BLOCKS = {
   air: { id: 0, name: "Air", solid: false, color: "transparent" },
@@ -74,8 +75,14 @@ export const WALLS = {
     color: "#373c46",
     line: "rgba(210, 220, 235, .16)",
   },
-  ladder: {
+  deepStoneBack: {
     id: 7,
+    name: "Deep Stone Backdrop",
+    color: "#1f2530",
+    line: "rgba(130, 150, 175, .18)",
+  },
+  ladder: {
+    id: 8,
     name: "Ladder",
     color: "#8b552c",
     line: "rgba(255, 220, 160, .22)",

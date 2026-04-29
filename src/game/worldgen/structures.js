@@ -1,4 +1,4 @@
-import { BLOCKS, WALLS, WORLD_H, WORLD_W } from "../constants";
+import { BLOCKS, SEA_LEVEL, WALLS, WORLD_H, WORLD_W } from "../constants";
 
 function hashNoise(x, seed = 1) {
   const value = Math.sin((x + seed) * 127.1) * 43758.5453;
@@ -36,6 +36,7 @@ function isBuildableSurface(world, heights, x, width, allowedBlocks) {
   const maxY = Math.max(...heights.slice(x, x + width));
 
   if (maxY - minY > 2) return false;
+  if (maxY >= SEA_LEVEL) return false;
 
   for (let xx = x; xx < x + width; xx++) {
     if (!isDrySurface(world, xx, heights[xx], allowedBlocks)) return false;

@@ -1,11 +1,11 @@
-import { BLOCKS, WALLS, WORLD_H, WORLD_W } from "../constants";
+import { BLOCKS, SEA_LEVEL, WALLS, WORLD_H, WORLD_W } from "../constants";
 import { getBiome } from "./biomes";
 import { addCactus } from "./cactus";
 import { addLake } from "./lakes";
 import { hashNoise } from "./noise";
 import { addOres } from "./ores";
 import { placeStructures } from "./structures";
-import { fillColumn, terrainHeight } from "./terrain";
+import { fillColumn, fillSeaLevel, terrainHeight } from "./terrain";
 import { addTree } from "./trees";
 import { createWaterLevels } from "./utils";
 
@@ -27,6 +27,7 @@ export function makeWorld(seed = Math.random() * 999999) {
     biomes[x] = biome;
     heights[x] = height;
     fillColumn(world, walls, x, height, biome);
+    fillSeaLevel(world, walls, waterLevels, waterSources, x, height);
   }
 
   for (let x = 54; x < WORLD_W - 54; x += 72) {
@@ -42,6 +43,7 @@ export function makeWorld(seed = Math.random() * 999999) {
   for (let x = 18; x < WORLD_W - 18; x += 12) {
     const biome = biomes[x];
     const roll = hashNoise(x * 5.7, seed + 1700);
+    if (heights[x] >= SEA_LEVEL) continue;
 
     if (biome === "forest" && roll > 0.28) {
       addTree(world, heights, x, seed, true);

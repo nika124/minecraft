@@ -47,9 +47,10 @@ export function getWallTexture(wall) {
       ctx.stroke();
     } else if (
       wall.id === WALLS.stoneWall.id ||
-      wall.id === WALLS.stoneBack.id
+      wall.id === WALLS.stoneBack.id ||
+      wall.id === WALLS.deepStoneBack.id
     ) {
-      drawStoneCracks(ctx, wall.id * 17, 0.16);
+      drawStoneCracks(ctx, wall.id * 17, wall.id === WALLS.deepStoneBack.id ? 0.24 : 0.16);
     } else if (wall.id === WALLS.glassWall.id) {
       ctx.strokeStyle = wall.line;
       ctx.beginPath();

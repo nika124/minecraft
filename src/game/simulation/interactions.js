@@ -2,6 +2,7 @@ import {
   BLOCK_BY_ID,
   BLOCKS,
   PLACEABLE,
+  SEA_LEVEL,
   TILE,
   WALL_BY_ID,
   WALL_PLACEABLE,
@@ -53,6 +54,15 @@ export function removeUnsupportedTorches({
   }
 
   return removed;
+}
+
+function naturalBackdropFor(world, x, y) {
+  if (y >= SEA_LEVEL) return WALLS.deepStoneBack.id;
+
+  const block = BLOCK_BY_ID[world[y][x]] ?? BLOCKS.air;
+  return block.id === BLOCKS.stone.id || block.id === BLOCKS.ore.id
+    ? WALLS.stoneBack.id
+    : WALLS.dirtBack.id;
 }
 
 export function mineOrPlace({
@@ -127,7 +137,9 @@ export function mineOrPlace({
         }));
       } else if (walls[worldY][worldX] !== WALLS.empty.id) {
         const removedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
-        walls[worldY][worldX] = WALLS.empty.id;
+        const replacementWall = naturalBackdropFor(world, worldX, worldY);
+        walls[worldY][worldX] =
+          worldY >= SEA_LEVEL ? replacementWall : WALLS.empty.id;
         const torchesRemoved = removeUnsupportedTorches({
           world,
           walls,
@@ -241,10 +253,11 @@ export function mineOrPlace({
       currentBlock.id === BLOCKS.wood.id ||
       currentBlock.id === BLOCKS.leaves.id;
     const shouldRevealUnderground =
-      !wasPlayerPlaced &&
-      !leavesNaturalAir &&
-      currentBlock.id !== BLOCKS.glass.id &&
-      currentBlock.id !== BLOCKS.torch.id;
+      worldY >= SEA_LEVEL ||
+      (!wasPlayerPlaced &&
+        !leavesNaturalAir &&
+        currentBlock.id !== BLOCKS.glass.id &&
+        currentBlock.id !== BLOCKS.torch.id);
 
     if (shouldRevealUnderground && walls[worldY][worldX] === WALLS.empty.id) {
       walls[worldY][worldX] =

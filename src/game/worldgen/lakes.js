@@ -1,4 +1,4 @@
-import { BLOCKS, WALLS, WORLD_H, WORLD_W } from "../constants";
+import { BLOCKS, SEA_LEVEL, WALLS, WORLD_H, WORLD_W } from "../constants";
 import { hashNoise } from "./noise";
 import {
   addWater,
@@ -30,7 +30,10 @@ export function addLake(
 
   if (maxY - minY > 6 || centerY < maxY - 2) return false;
 
-  const waterTopY = clamp(centerY + 1, 18, WORLD_H - 9);
+  const naturalWaterTopY = centerY + 1;
+  if (naturalWaterTopY < SEA_LEVEL) return false;
+
+  const waterTopY = clamp(naturalWaterTopY, SEA_LEVEL, WORLD_H - 9);
   const rimY = waterTopY - 1;
 
   for (let x = centerX - lakeWidth; x <= centerX + lakeWidth; x++) {

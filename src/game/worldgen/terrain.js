@@ -1,4 +1,5 @@
-import { BLOCKS, WALLS, WORLD_H } from "../constants";
+import { BLOCKS, SEA_LEVEL, WALLS, WORLD_H } from "../constants";
+import { addWater } from "./utils";
 import { getBiome } from "./biomes";
 import { smoothNoise } from "./noise";
 import { clamp } from "./utils";
@@ -30,11 +31,30 @@ export function fillColumn(world, walls, x, height, biome) {
     } else {
       world[y][x] =
         depth === 0
-          ? BLOCKS.grass.id
+          ? height >= SEA_LEVEL
+            ? BLOCKS.sand.id
+            : BLOCKS.grass.id
           : depth < 5
             ? BLOCKS.dirt.id
             : BLOCKS.stone.id;
       walls[y][x] = depth < 5 ? WALLS.dirtBack.id : WALLS.stoneBack.id;
     }
+  }
+}
+
+export function fillSeaLevel(world, walls, waterLevels, waterSources, x, height) {
+  if (height <= SEA_LEVEL) return;
+
+  for (let y = SEA_LEVEL; y < height; y++) {
+    addWater(
+      world,
+      walls,
+      waterLevels,
+      waterSources,
+      x,
+      y,
+      y === SEA_LEVEL ? 0 : Math.min(7, y - SEA_LEVEL),
+      WALLS.deepStoneBack,
+    );
   }
 }
