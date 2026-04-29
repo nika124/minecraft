@@ -24,6 +24,7 @@ export default function ItemSlot({
       className={`item-slot ${selected ? "is-selected" : ""} ${output ? "is-output" : ""} ${!stack ? "is-empty" : ""}`}
       draggable={draggable}
       onMouseDown={(event) => {
+        event.preventDefault();
         onMouseDown?.(event);
       }}
       onDragStart={onDragStart}

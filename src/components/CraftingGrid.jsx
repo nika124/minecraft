@@ -27,7 +27,9 @@ export default function CraftingGrid({
               stack={slot}
               label=""
               renderItem={renderItem}
-              onMouseDown={(event) => onSlotMouseDown(index, event.button)}
+              onMouseDown={(event) =>
+                onSlotMouseDown(index, event.button, event.ctrlKey)
+              }
             />
           ))}
         </div>

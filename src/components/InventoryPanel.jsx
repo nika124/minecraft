@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   BLOCK_BY_ID,
@@ -122,6 +122,21 @@ export default function InventoryPanel({
     setCursorPosition({ x: event.clientX, y: event.clientY });
   };
 
+  const updateCursorPosition = (event) => {
+    setCursorPosition({ x: event.clientX, y: event.clientY });
+  };
+
+  useEffect(() => {
+    if (!cursorStack) return undefined;
+
+    const handleWindowMouseMove = (event) => {
+      setCursorPosition({ x: event.clientX, y: event.clientY });
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    return () => window.removeEventListener("mousemove", handleWindowMouseMove);
+  }, [cursorStack]);
+
   const carriedOverlay =
     cursorStack && typeof document !== "undefined"
       ? createPortal(
@@ -141,6 +156,7 @@ export default function InventoryPanel({
     <div
       className={`panel inventory-panel ${onClose ? "is-overlay" : ""}`}
       onMouseMove={handleMouseMove}
+      onMouseDown={updateCursorPosition}
     >
       {onClose && (
         <div className="inventory-title-row">

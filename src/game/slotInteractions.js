@@ -79,3 +79,26 @@ export function clickInventoryCount(itemId, count, cursorStack, button) {
       next.slot && next.slot.itemId !== itemId ? next.slot : null,
   };
 }
+
+export function placeIntoCraftingSlot(slotStack, cursorStack, { placeFull = false, button = MOUSE_BUTTON.LEFT } = {}) {
+  const slot = cloneStack(slotStack);
+  const cursor = cloneStack(cursorStack);
+
+  if (!cursor) return clickStackSlot(slot, null, button);
+
+  if (slot && slot.itemId !== cursor.itemId) {
+    return { slot, cursor };
+  }
+
+  const amountToPlace = placeFull ? cursor.amount : 1;
+  const nextCursorAmount = cursor.amount - amountToPlace;
+  const nextSlotAmount = (slot?.amount ?? 0) + amountToPlace;
+
+  return {
+    slot: { itemId: cursor.itemId, amount: nextSlotAmount },
+    cursor:
+      nextCursorAmount > 0
+        ? { itemId: cursor.itemId, amount: nextCursorAmount }
+        : null,
+  };
+}

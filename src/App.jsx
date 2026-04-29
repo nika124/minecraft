@@ -10,7 +10,7 @@ import { consumeCraftingIngredients, getCraftingOutput } from "./game/crafting";
 import {
   MOUSE_BUTTON,
   clickInventoryCount,
-  clickStackSlot,
+  placeIntoCraftingSlot,
 } from "./game/slotInteractions";
 import {
   BLOCK_BY_ID,
@@ -266,9 +266,10 @@ export default function MinecraftInspiredWebGame() {
       }
 
       setBlockHotbar((current) =>
-        current.map((value, index) =>
-          index === slotIndex ? placeableIndex : value,
-        ),
+        current.map((value, index) => {
+          if (index === slotIndex) return placeableIndex;
+          return value === placeableIndex ? null : value;
+        }),
       );
       setSelected(slotIndex);
       setCarriedPlaceableIndex(null);
@@ -498,13 +499,13 @@ export default function MinecraftInspiredWebGame() {
   }, []);
 
   const handleCraftingSlotMouseDown = useCallback(
-    (slotIndex, button) => {
+    (slotIndex, button, ctrlKey = false) => {
       const { gridRef } = activeCraftingGrid();
       const grid = [...gridRef.current];
-      const next = clickStackSlot(
+      const next = placeIntoCraftingSlot(
         grid[slotIndex],
         cursorStackRef.current,
-        button,
+        { button, placeFull: ctrlKey },
       );
 
       grid[slotIndex] = next.slot;
