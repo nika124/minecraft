@@ -139,6 +139,8 @@ button {
 }
 
 .game-canvas {
+  position: relative;
+  z-index: 0;
   display: block;
   width: 100%;
   cursor: crosshair;
@@ -147,6 +149,7 @@ button {
 .game-ui-canvas {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: block;
   width: 100%;
   height: 100%;
@@ -772,5 +775,302 @@ button {
   .action-button,
   .palette-item {
     width: 100%;
+  }
+}
+
+/* Pixel UI pass: align the page chrome with the inventory style. */
+.game-app {
+  background:
+    none;
+  background-color: #6b7280;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  image-rendering: pixelated;
+}
+
+.game-header,
+.panel,
+.game-settings-overlay {
+  border: 4px solid #111827;
+  border-radius: 0;
+  color: #111827;
+  background: #c6c6c6;
+  box-shadow:
+    inset 3px 3px 0 #ffffff,
+    inset -3px -3px 0 #555555,
+    0 14px 0 rgba(0, 0, 0, 0.2);
+  backdrop-filter: none;
+}
+
+.game-header {
+  padding: 16px;
+}
+
+.eyebrow {
+  color: #166534;
+  letter-spacing: 0;
+}
+
+.game-title h1 {
+  color: #111827;
+  font-size: clamp(1.65rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+.game-title p:not(.eyebrow),
+.settings-row,
+.settings-toggle-row,
+.palette-copy small,
+.control-tile,
+.stats-card span {
+  color: #374151;
+  font-weight: 800;
+}
+
+.action-button,
+.icon-button,
+.mode-tab,
+.palette-item,
+.settings-close,
+.settings-toggle-row button,
+.settings-segmented button {
+  border: 2px solid #111827;
+  border-radius: 0;
+  color: #111827;
+  background: #a3a3a3;
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  box-shadow:
+    inset 2px 2px 0 #eeeeee,
+    inset -2px -2px 0 #555555;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.action-button:hover,
+.icon-button:hover,
+.mode-tab:hover,
+.palette-item:hover,
+.settings-close:hover,
+.settings-toggle-row button:hover,
+.settings-segmented button:hover {
+  transform: none;
+  border-color: #111827;
+  background: #b8b8b8;
+}
+
+.action-button:active,
+.icon-button:active,
+.mode-tab:active,
+.palette-item:active,
+.settings-close:active,
+.settings-toggle-row button:active,
+.settings-segmented button:active {
+  background: #929292;
+  box-shadow:
+    inset 2px 2px 0 #555555,
+    inset -2px -2px 0 #eeeeee;
+}
+
+.action-button.is-cyan,
+.mode-tab.is-active.is-cyan,
+.settings-toggle-row button.is-active,
+.settings-segmented button.is-active {
+  color: #082f49;
+  border-color: #111827;
+  background: #67e8f9;
+}
+
+.mode-tab.is-active {
+  color: #052e16;
+  border-color: #111827;
+  background: #86efac;
+}
+
+.game-stage {
+  border: 4px solid #111827;
+  border-radius: 0;
+  box-shadow:
+    inset 3px 3px 0 #4b5563,
+    inset -3px -3px 0 #000000,
+    0 18px 0 rgba(0, 0, 0, 0.24);
+}
+
+.game-stage.is-help-open .game-canvas,
+.game-stage.is-help-open .game-ui-canvas {
+  filter: blur(5px);
+}
+
+.game-help-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 4;
+  width: min(650px, calc(100% - 40px));
+  max-height: calc(100% - 40px);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  padding: 24px 30px 28px;
+  border: 4px solid #111827;
+  color: #111827;
+  background: #c6c6c6;
+  box-shadow:
+    inset 3px 3px 0 #ffffff,
+    inset -3px -3px 0 #555555,
+    0 20px 50px rgba(0, 0, 0, 0.45);
+  font-family: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.game-help-overlay h2 {
+  margin: 0 0 18px;
+  color: #111827;
+  font-size: 1.65rem;
+  line-height: 1;
+  font-weight: 950;
+}
+
+.help-control-list {
+  display: grid;
+  gap: 8px;
+}
+
+.help-control-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.7fr) 1fr;
+  gap: 16px;
+  align-items: baseline;
+  min-height: 26px;
+  color: #374151;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.help-control-row b {
+  color: #14532d;
+  font-weight: 950;
+}
+
+.stage-toolbar {
+  padding: 9px 10px;
+  color: #111827;
+  background: #c6c6c6;
+  border-bottom: 4px solid #111827;
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.game-settings-overlay {
+  color: #111827;
+}
+
+.settings-close,
+.settings-toggle-row button,
+.settings-segmented button {
+  border-radius: 0;
+}
+
+.settings-row input {
+  accent-color: #14532d;
+}
+
+.game-panels {
+  grid-template-columns: 1fr;
+}
+
+.mode-label {
+  border-radius: 0;
+  color: #111827;
+  background: transparent;
+}
+
+.inventory-section-heading span,
+.side-panel h2,
+.palette-copy span,
+.control-tile b {
+  color: #111827;
+}
+
+.hotbar-editor-slot,
+.control-tile,
+.stats-card {
+  border: 2px solid #111827;
+  border-radius: 0;
+  color: #111827;
+  background: #a3a3a3;
+  box-shadow:
+    inset 2px 2px 0 #eeeeee,
+    inset -2px -2px 0 #555555;
+}
+
+.hotbar-editor-slot {
+  color: #111827;
+  background: #8b8b8b;
+}
+
+.hotbar-editor-slot:hover {
+  transform: none;
+  border-color: #111827;
+  background: #9f9f9f;
+}
+
+.hotbar-editor-slot.is-selected,
+.palette-item.is-selected {
+  color: #111827;
+  border-color: #ffffff;
+  background: #9f9f9f;
+  box-shadow:
+    inset 2px 2px 0 #3f3f3f,
+    inset -2px -2px 0 #ffffff,
+    0 0 0 2px #111827;
+}
+
+.slot-key {
+  color: #dcfce7;
+}
+
+.swatch {
+  border-radius: 0;
+}
+
+.control-grid {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  max-height: 238px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-color: #555555 #a0a0a0;
+  scrollbar-width: thin;
+}
+
+.control-grid::-webkit-scrollbar {
+  width: 10px;
+}
+
+.control-grid::-webkit-scrollbar-track {
+  border: 2px solid #111827;
+  background: #a0a0a0;
+}
+
+.control-grid::-webkit-scrollbar-thumb {
+  border: 2px solid #111827;
+  background: #555555;
+}
+
+.stats-card {
+  background: #a0a0a0;
+}
+
+.stats-card b {
+  color: #14532d;
+}
+
+.stats-card p {
+  color: #111827;
+  font-weight: 850;
+}
+
+@media (max-width: 920px) {
+  .game-header {
+    display: block;
   }
 }

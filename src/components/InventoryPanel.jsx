@@ -74,7 +74,7 @@ export default function InventoryPanel({
             <small>
               {carriedItem
                 ? `Holding ${carriedItem.name}: click a hotbar slot or press 1-0.`
-                : "Pick a normal item, then drop it into the hotbar."}
+                : "Pick an item, then drop it into the hotbar."}
             </small>
           </div>
           <button onClick={onClose} className="inventory-close" aria-label="Close inventory">
@@ -149,7 +149,7 @@ export default function InventoryPanel({
             <span>Hotbar</span>
             <small>
               {carriedItem
-                ? "Click a slot or press 1-0 to place the held item."
+                ? "Click a slot or press 1-0 to assign the held item."
                 : "Drag a hotbar item upward to remove it."}
             </small>
           </div>

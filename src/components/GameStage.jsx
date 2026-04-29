@@ -3,6 +3,7 @@ export default function GameStage({
   canvasRef,
   uiCanvasRef,
   isFullscreen,
+  isHelpOpen,
   buildMode,
   onToggleFullscreen,
   children,
@@ -10,7 +11,7 @@ export default function GameStage({
   return (
     <div
       ref={gameShellRef}
-      className={`game-stage ${isFullscreen ? "is-fullscreen" : ""}`}
+      className={`game-stage ${isFullscreen ? "is-fullscreen" : ""} ${isHelpOpen ? "is-help-open" : ""}`}
     >
       <div className="stage-toolbar">
         <span>

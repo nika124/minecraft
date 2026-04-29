@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ControlsPanel from "./components/ControlsPanel";
 import GameHeader from "./components/GameHeader";
 import GameStage from "./components/GameStage";
+import HelpOverlay from "./components/HelpOverlay";
 import InventoryPanel from "./components/InventoryPanel";
 import SettingsOverlay from "./components/SettingsOverlay";
 import {
@@ -41,7 +42,6 @@ import {
 import { updatePlayerAndCamera } from "./game/simulation/player";
 import { mineOrPlace } from "./game/simulation/interactions";
 import {
-  drawHelpOverlay,
   drawHotbar,
   drawPauseMenu,
   drawSelectionHint,
@@ -61,6 +61,7 @@ import {
 void ControlsPanel;
 void GameHeader;
 void GameStage;
+void HelpOverlay;
 void InventoryPanel;
 void SettingsOverlay;
 
@@ -121,7 +122,6 @@ export default function MinecraftInspiredWebGame() {
   const selectionHintRef = useRef({ text: "", color: "#86efac", until: 0 });
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
-  const helpOpenRef = useRef(false);
   const inventoryOpenRef = useRef(false);
   const carriedPlaceableRef = useRef(null);
   const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
@@ -163,10 +163,6 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     pausedRef.current = isPaused;
   }, [isPaused]);
-
-  useEffect(() => {
-    helpOpenRef.current = isHelpOpen;
-  }, [isHelpOpen]);
 
   useEffect(() => {
     inventoryOpenRef.current = isInventoryOpen;
@@ -761,7 +757,6 @@ export default function MinecraftInspiredWebGame() {
       });
       drawSelectionHint(uiCtx, selectionHintRef.current);
 
-      if (helpOpenRef.current && !pausedRef.current) drawHelpOverlay(uiCtx);
       if (pausedRef.current) {
         menuButtonsRef.current = drawPauseMenu(
           uiCtx,
@@ -800,9 +795,13 @@ export default function MinecraftInspiredWebGame() {
           canvasRef={canvasRef}
           uiCanvasRef={uiCanvasRef}
           isFullscreen={isFullscreen}
+          isHelpOpen={isHelpOpen && !isPaused}
           buildMode={buildMode}
           onToggleFullscreen={toggleFullscreen}
         >
+          {isHelpOpen && !isPaused && (
+            <HelpOverlay />
+          )}
           {isSettingsOpen && (
             <SettingsOverlay
               gameSettings={gameSettings}
