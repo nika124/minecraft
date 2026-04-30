@@ -22,7 +22,7 @@ export default function GameHeader({
           {buildMode === "background" ? "Background Mode" : "Foreground Mode"}
         </button>
         <button onClick={onFillHouseBackground} className="action-button">
-          Fill House Wall
+          Fill Background
         </button>
         <button onClick={onResetWorld} className="action-button">
           Generate New World

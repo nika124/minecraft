@@ -292,8 +292,6 @@ export const TOOLS = [
   },
 ];
 
-export const FOREGROUND_ITEMS = [...PLACEABLE, ...TOOLS];
-
 export const WALL_PLACEABLE = [
   WALLS.woodWall,
   WALLS.brickWall,
@@ -301,3 +299,16 @@ export const WALL_PLACEABLE = [
   WALLS.glassWall,
   WALLS.ladder,
 ];
+
+export const SPECIAL_PLACEABLE = [
+  {
+    id: "ladder",
+    kind: "special",
+    name: "Ladder",
+    color: WALLS.ladder.color,
+    wallId: WALLS.ladder.id,
+  },
+];
+
+export const HOTBAR_ITEMS = [...PLACEABLE, ...SPECIAL_PLACEABLE, ...TOOLS];
+export const FOREGROUND_ITEMS = HOTBAR_ITEMS;

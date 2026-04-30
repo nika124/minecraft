@@ -40,12 +40,18 @@ export function torchHasSupport(
   ignoreX = null,
   ignoreY = null,
 ) {
-  const hasBlockBelow =
-    y < WORLD_H - 1 &&
-    !(x === ignoreX && y + 1 === ignoreY) &&
-    BLOCK_BY_ID[world[y + 1][x]]?.solid;
+  const hasNearbySolidBlock = [
+    [x, y + 1],
+    [x, y - 1],
+    [x - 1, y],
+    [x + 1, y],
+  ].some(([nx, ny]) => {
+    if (nx < 0 || ny < 0 || nx >= WORLD_W || ny >= WORLD_H) return false;
+    if (nx === ignoreX && ny === ignoreY) return false;
+    return BLOCK_BY_ID[world[ny][nx]]?.solid;
+  });
   const hasBackgroundWall = walls[y][x] !== WALLS.empty.id;
-  return hasBlockBelow || hasBackgroundWall;
+  return hasNearbySolidBlock || hasBackgroundWall;
 }
 
 export function ladderHasAnchor(walls, ladders, x, y) {

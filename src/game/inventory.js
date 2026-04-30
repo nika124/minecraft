@@ -41,6 +41,14 @@ export function removeItem(inventoryOrRef, itemId, amount = 1) {
   return true;
 }
 
+export function consumeInventoryItem(inventoryOrRef, itemId, amount = 1) {
+  return removeItem(inventoryOrRef, itemId, amount);
+}
+
+export function addInventoryItem(inventoryOrRef, itemId, amount = 1) {
+  return addItem(inventoryOrRef, itemId, amount);
+}
+
 export function addDrops(inventoryOrRef, drops = []) {
   let changed = false;
   for (const drop of drops) {

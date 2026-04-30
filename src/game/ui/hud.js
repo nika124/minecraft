@@ -1,6 +1,6 @@
-import { FOREGROUND_ITEMS, VIEW_H, VIEW_W, WALL_PLACEABLE } from "../constants";
+import { FOREGROUND_ITEMS, VIEW_H, VIEW_W, WALL_BY_ID } from "../constants";
 import { getItemCount } from "../inventory";
-import { getForegroundItemId, getWallItemId } from "../items";
+import { getForegroundItemId } from "../items";
 import { getBlockTexture, getItemTexture, getWallTexture } from "../textures";
 import { clamp } from "../world";
 
@@ -61,17 +61,13 @@ export function drawHotbar(ctx, state) {
     buildMode,
     blockHotbar,
     selected,
-    selectedWall,
     inventory,
   } = state;
-  const items =
-    buildMode === "background"
-      ? WALL_PLACEABLE
-      : blockHotbar.map((index) => FOREGROUND_ITEMS[index]);
-  const selectedIndex = buildMode === "background" ? selectedWall : selected;
+  const items = blockHotbar.map((index) => FOREGROUND_ITEMS[index]);
+  const selectedIndex = selected;
   const slot = 48;
   const gap = 6;
-  const count = buildMode === "background" ? WALL_PLACEABLE.length : 10;
+  const count = 10;
   const totalW = count * slot + (count - 1) * gap;
   const startX = (VIEW_W - totalW) / 2;
   const y = VIEW_H - 62;
@@ -92,17 +88,14 @@ export function drawHotbar(ctx, state) {
     }
 
     if (item) {
-      const itemId =
-        buildMode === "background"
-          ? getWallItemId(item)
-          : getForegroundItemId(item);
+      const itemId = getForegroundItemId(item);
       const count = getItemCount(inventory, itemId);
       const texture =
-        buildMode === "background"
-          ? getWallTexture(item)
-          : item.kind === "tool"
+        item.kind === "tool"
             ? getItemTexture(item)
-            : getBlockTexture(item);
+            : item.wallId !== undefined
+              ? getWallTexture(WALL_BY_ID[item.wallId])
+              : getBlockTexture(item);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(texture, x + 11, y + 10, 26, 26);
@@ -127,8 +120,8 @@ export function drawHotbar(ctx, state) {
   }
 
   const label =
-    buildMode === "background" ? "Background walls" : "Foreground blocks";
-  const labelW = buildMode === "background" ? 180 : 188;
+    buildMode === "background" ? "Background mode" : "Foreground blocks";
+  const labelW = buildMode === "background" ? 178 : 188;
   drawBeveledRect(ctx, 16, VIEW_H - 48, labelW, 32, "#c6c6c6");
   ctx.fillStyle = buildMode === "background" ? "#082f49" : "#14532d";
   ctx.font = "900 13px ui-monospace, Cascadia Mono, Consolas, monospace";

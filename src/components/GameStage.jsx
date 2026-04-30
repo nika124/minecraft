@@ -15,7 +15,7 @@ export default function GameStage({
     >
       <div className="stage-toolbar">
         <span>
-          {buildMode === "background" ? "Background walls" : "Foreground blocks"}
+          {buildMode === "background" ? "Background layer" : "Foreground blocks"}
         </span>
         <button onClick={onToggleFullscreen} className="icon-button">
           {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}

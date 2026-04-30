@@ -1,4 +1,10 @@
-import { BLOCKS, FOREGROUND_ITEMS, WALLS, WALL_PLACEABLE } from "./constants";
+import {
+  BLOCKS,
+  FOREGROUND_ITEMS,
+  WALL_BY_ID,
+  WALLS,
+  WALL_PLACEABLE,
+} from "./constants";
 
 export const ITEMS = {
   grass: {
@@ -153,7 +159,38 @@ export const ITEMS = {
   },
 };
 
-export const ITEM_LIST = Object.values(ITEMS);
+const LEGACY_WALL_ITEM_IDS = new Set([
+  "woodWall",
+  "stoneWall",
+  "brickWall",
+  "glassWall",
+]);
+
+export const ITEM_LIST = Object.values(ITEMS).filter(
+  (item) => !LEGACY_WALL_ITEM_IDS.has(item.id),
+);
+
+const BACKGROUND_WALL_BY_BLOCK_ID = new Map([
+  [BLOCKS.grass.id, WALLS.dirtBack.id],
+  [BLOCKS.dirt.id, WALLS.dirtBack.id],
+  [BLOCKS.sand.id, WALLS.dirtBack.id],
+  [BLOCKS.stone.id, WALLS.stoneWall.id],
+  [BLOCKS.wood.id, WALLS.woodWall.id],
+  [BLOCKS.planks.id, WALLS.woodWall.id],
+  [BLOCKS.brick.id, WALLS.brickWall.id],
+  [BLOCKS.glass.id, WALLS.glassWall.id],
+]);
+
+const BACKGROUND_ITEM_BY_WALL_ID = new Map([
+  [WALLS.woodWall.id, "wood"],
+  [WALLS.stoneWall.id, "stone"],
+  [WALLS.stoneBack.id, "stone"],
+  [WALLS.deepStoneBack.id, "stone"],
+  [WALLS.brickWall.id, "brick"],
+  [WALLS.glassWall.id, "glass"],
+  [WALLS.dirtBack.id, "dirt"],
+  [WALLS.ladder.id, "ladder"],
+]);
 
 const BLOCK_ITEM_BY_ID = new Map(
   ITEM_LIST.filter((item) => item.blockId !== undefined).map((item) => [
@@ -174,7 +211,9 @@ const FOREGROUND_INDEX_BY_ITEM_ID = new Map(
 );
 
 const WALL_INDEX_BY_ITEM_ID = new Map(
-  WALL_PLACEABLE.map((wall, index) => [getWallItemId(wall), index]),
+  WALL_PLACEABLE.map((wall, index) => [getWallItemId(wall), index]).filter(
+    ([itemId]) => itemId !== null,
+  ),
 );
 
 export function getBlockItemId(block) {
@@ -188,6 +227,8 @@ export function getWallItemId(wall) {
 export function getForegroundItemId(item) {
   if (!item) return null;
   if (item.kind === "tool") return item.id;
+  if (item.kind === "special") return item.id;
+  if (item.wallId !== undefined) return getWallItemId(WALL_BY_ID[item.wallId]);
   return getBlockItemId(item);
 }
 
@@ -201,4 +242,31 @@ export function getWallIndexForItem(itemId) {
 
 export function getItemName(itemId) {
   return ITEMS[itemId]?.name ?? itemId;
+}
+
+export function getBackgroundWallForBlock(blockOrItem) {
+  const blockId =
+    typeof blockOrItem === "string"
+      ? ITEMS[blockOrItem]?.blockId
+      : typeof blockOrItem === "number"
+        ? blockOrItem
+        : blockOrItem?.blockId ?? blockOrItem?.id;
+  const wallId = BACKGROUND_WALL_BY_BLOCK_ID.get(blockId);
+  return WALL_BY_ID[wallId] ?? null;
+}
+
+export function getItemForRemovedBackgroundWall(wallOrId) {
+  const wallId = typeof wallOrId === "number" ? wallOrId : wallOrId?.id;
+  return BACKGROUND_ITEM_BY_WALL_ID.get(wallId) ?? null;
+}
+
+export function canPlaceAsForeground(item) {
+  if (!item || item.kind === "tool") return false;
+  return item.blockId !== undefined || getBlockItemId(item) !== null;
+}
+
+export function canPlaceAsBackground(item) {
+  if (!item || item.category === "tool" || item.kind === "tool") return false;
+  if (item.id === "torch" || item.id === "ladder") return true;
+  return Boolean(getBackgroundWallForBlock(item));
 }

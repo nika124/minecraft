@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { VIEW_H, VIEW_W, WALL_PLACEABLE } from "../game/constants";
+import { VIEW_H, VIEW_W } from "../game/constants";
 
 const HOTBAR_SLOT_COUNT = 10;
 
@@ -9,9 +9,7 @@ export function useKeyboardControls({
   pressedRef,
   inventoryOpenRef,
   carriedPlaceableRef,
-  buildModeRef,
   selectBlock,
-  selectWall,
   toggleBuildMode,
   fillHouseBackground,
   resetWorld,
@@ -62,8 +60,6 @@ export function useKeyboardControls({
           index < HOTBAR_SLOT_COUNT
         ) {
           selectBlock(index);
-        } else if (buildModeRef.current === "background") {
-          if (index < WALL_PLACEABLE.length) selectWall(index);
         } else if (index < HOTBAR_SLOT_COUNT) {
           selectBlock(index);
         }
@@ -115,7 +111,6 @@ export function useKeyboardControls({
       window.removeEventListener("contextmenu", preventContext);
     };
   }, [
-    buildModeRef,
     carriedPlaceableRef,
     fillHouseBackground,
     inventoryOpenRef,
@@ -124,7 +119,6 @@ export function useKeyboardControls({
     pressedRef,
     resetWorld,
     selectBlock,
-    selectWall,
     setCarriedPlaceableIndex,
     setIsHelpOpen,
     setIsInventoryOpen,

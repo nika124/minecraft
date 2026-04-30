@@ -18,10 +18,13 @@ const BLOCK_DROPS = {
 };
 
 const WALL_DROPS = {
-  [WALLS.woodWall.id]: [{ itemId: "woodWall", amount: 1 }],
-  [WALLS.stoneWall.id]: [{ itemId: "stoneWall", amount: 1 }],
-  [WALLS.brickWall.id]: [{ itemId: "brickWall", amount: 1 }],
-  [WALLS.glassWall.id]: [{ itemId: "glassWall", amount: 1 }],
+  [WALLS.woodWall.id]: [{ itemId: "wood", amount: 1 }],
+  [WALLS.stoneWall.id]: [{ itemId: "stone", amount: 1 }],
+  [WALLS.stoneBack.id]: [{ itemId: "stone", amount: 1 }],
+  [WALLS.deepStoneBack.id]: [{ itemId: "stone", amount: 1 }],
+  [WALLS.brickWall.id]: [{ itemId: "brick", amount: 1 }],
+  [WALLS.glassWall.id]: [{ itemId: "glass", amount: 1 }],
+  [WALLS.dirtBack.id]: [{ itemId: "dirt", amount: 1 }],
   [WALLS.ladder.id]: [{ itemId: "ladder", amount: 1 }],
 };
 

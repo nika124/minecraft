@@ -4,15 +4,15 @@ import {
   BLOCK_BY_ID,
   FOREGROUND_ITEMS,
   WALL_BY_ID,
-  WALL_PLACEABLE,
 } from "../game/constants";
 import { getItemCount } from "../game/inventory";
 import {
   ITEM_LIST,
   ITEMS,
+  canPlaceAsBackground,
   getForegroundIndexForItem,
   getForegroundItemId,
-  getWallItemId,
+  getBackgroundWallForBlock,
 } from "../game/items";
 import {
   getBlockTexture,
@@ -29,6 +29,8 @@ function renderTextureSwatch(item, type) {
       ? getWallTexture(item)
       : item.kind === "tool"
         ? getItemTexture(item)
+        : item.wallId !== undefined
+          ? getWallTexture(WALL_BY_ID[item.wallId])
         : getBlockTexture(item);
   return (
     <span
@@ -67,7 +69,6 @@ function renderInventorySwatch(item) {
 export default function InventoryPanel({
   buildMode,
   selected,
-  selectedWall,
   blockHotbar,
   inventory,
   craftingTitle = "Crafting",
@@ -87,7 +88,6 @@ export default function InventoryPanel({
   onAssignInventoryBlock,
   onClearHotbarSlot,
   onSwapHotbarSlots,
-  onSelectWall,
   onSetForegroundMode,
   onSetBackgroundMode,
   carriedPlaceableIndex,
@@ -226,6 +226,16 @@ export default function InventoryPanel({
           overlayTarget,
         )
       : null;
+  const visibleInventoryItems =
+    buildMode === "background" ? ITEM_LIST.filter(canPlaceAsBackground) : ITEM_LIST;
+  const inventoryHeading =
+    buildMode === "background"
+      ? "Background placement items"
+      : "Foreground blocks and items";
+  const inventoryHint =
+    buildMode === "background"
+      ? "Assign normal blocks, torches, or ladders to the hotbar; build mode chooses the layer."
+      : "Left click carries a stack. Drag or carry to the hotbar to assign.";
 
   return (
     <div
@@ -272,63 +282,66 @@ export default function InventoryPanel({
 
       <div className="inventory-workspace">
         <div className="inventory-main">
-          {buildMode === "foreground" ? (
-            <>
-              <div className="inventory-section-heading">
-                <span>Foreground blocks and items</span>
-                <small>Left click carries a stack. Drag or carry to the hotbar to assign.</small>
-              </div>
-              <div
-                className="palette-grid inventory-items-grid"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={handleInventoryDrop}
-              >
-                {ITEM_LIST.map((item) => {
-                  const count = getItemCount(inventory, item.id);
-                  const foregroundIndex = getForegroundIndexForItem(item.id);
-                  const isAssignable = foregroundIndex !== null;
-                  const equippedSlot = isAssignable
-                    ? blockHotbar.indexOf(foregroundIndex)
-                    : -1;
-                  const isCarried = carriedPlaceableIndex === foregroundIndex;
-                  return (
-                    <button
-                      type="button"
-                      key={item.id}
-                      draggable={false}
-                      disabled={count <= 0 && !cursorStack}
-                      onMouseDown={(event) => {
-                        updateCursorPosition(event);
-                        event.preventDefault();
-                        onInventorySlotMouseDown(
-                          item.id,
-                          event.button,
-                          event.ctrlKey,
-                        );
-                      }}
-                      onMouseEnter={(event) =>
-                        onInventorySlotMouseEnter?.(
-                          item.id,
-                          event.buttons,
-                          event.ctrlKey,
-                        )
-                      }
-                      onContextMenu={(event) => event.preventDefault()}
-                      onClick={(event) => event.preventDefault()}
-                      onDragStart={(event) => {
-                        if (!isAssignable || count <= 0) return;
-                        onChooseInventoryBlock(foregroundIndex);
-                        setDragData(event, `inventory:${foregroundIndex}`);
-                      }}
-                      className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
-                    >
-                      {renderInventorySwatch(item)}
-                      <span className="item-count">{count}</span>
-                      <span className="palette-copy">
-                        <span>{item.name}</span>
-                        <small>
-                          {equippedSlot !== -1
-                            ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+          <div className="inventory-section-heading">
+            <span>{inventoryHeading}</span>
+            <small>{inventoryHint}</small>
+          </div>
+          <div
+            className="palette-grid inventory-items-grid"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleInventoryDrop}
+          >
+            {visibleInventoryItems.map((item) => {
+              const count = getItemCount(inventory, item.id);
+              const foregroundIndex = getForegroundIndexForItem(item.id);
+              const isAssignable = foregroundIndex !== null;
+              const equippedSlot = isAssignable
+                ? blockHotbar.indexOf(foregroundIndex)
+                : -1;
+              const isCarried = carriedPlaceableIndex === foregroundIndex;
+              const backgroundWall = getBackgroundWallForBlock(item);
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  draggable={false}
+                  disabled={count <= 0 && !cursorStack}
+                  onMouseDown={(event) => {
+                    updateCursorPosition(event);
+                    event.preventDefault();
+                    onInventorySlotMouseDown(
+                      item.id,
+                      event.button,
+                      event.ctrlKey,
+                    );
+                  }}
+                  onMouseEnter={(event) =>
+                    onInventorySlotMouseEnter?.(
+                      item.id,
+                      event.buttons,
+                      event.ctrlKey,
+                    )
+                  }
+                  onContextMenu={(event) => event.preventDefault()}
+                  onClick={(event) => event.preventDefault()}
+                  onDragStart={(event) => {
+                    if (!isAssignable || count <= 0) return;
+                    onChooseInventoryBlock(foregroundIndex);
+                    setDragData(event, `inventory:${foregroundIndex}`);
+                  }}
+                  className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
+                >
+                  {renderInventorySwatch(item)}
+                  <span className="item-count">{count}</span>
+                  <span className="palette-copy">
+                    <span>{item.name}</span>
+                    <small>
+                      {equippedSlot !== -1
+                        ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+                        : buildMode === "background" && backgroundWall
+                          ? `Places ${backgroundWall.name}`
+                          : item.id === "ladder"
+                            ? "Background ladder"
                             : item.category === "tool"
                               ? "Mining tool"
                               : item.id === "torch"
@@ -338,41 +351,12 @@ export default function InventoryPanel({
                                   : isAssignable
                                     ? "Can equip"
                                     : "Crafting item"}
-                        </small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="inventory-section-heading">
-                <span>Background walls</span>
-                <small>Pick the wall used while background mode is active.</small>
-              </div>
-              <div className="palette-grid inventory-items-grid">
-                {WALL_PLACEABLE.map((wall, index) => {
-                  const count = getItemCount(inventory, getWallItemId(wall));
-                  return (
-                    <button
-                      type="button"
-                      key={wall.id}
-                      onClick={() => onSelectWall(index)}
-                      className={`palette-item is-wall ${selectedWall === index ? "is-selected" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
-                    >
-                      {renderTextureSwatch(wall, "wall")}
-                      <span className="item-count">{count}</span>
-                      <span className="palette-copy">
-                        <span>{index + 1}. {wall.name}</span>
-                        <small>Background wall</small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                    </small>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <CraftingGrid

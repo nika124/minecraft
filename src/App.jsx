@@ -21,7 +21,6 @@ import {
   VIEW_H,
   VIEW_W,
   WALL_BY_ID,
-  WALL_PLACEABLE,
   WALLS,
   WORLD_H,
   WORLD_W,
@@ -34,9 +33,9 @@ import {
   STARTING_INVENTORY,
 } from "./game/inventory";
 import {
+  getBackgroundWallForBlock,
   getForegroundIndexForItem,
   getForegroundItemId,
-  getWallItemId,
 } from "./game/items";
 import {
   drawEnvironment,
@@ -118,6 +117,7 @@ export default function MinecraftInspiredWebGame() {
   );
   const skyCoverageRef = useRef(null);
   const placedBlocksRef = useRef(new Set());
+  const placedWallsRef = useRef(new Set());
   const anchoredLaddersRef = useRef(new Set());
   const inventoryRef = useRef(null);
   const inventoryCraftingGridRef = useRef(Array(4).fill(null));
@@ -139,7 +139,6 @@ export default function MinecraftInspiredWebGame() {
   const playerRef = useRef(createPlayer());
   const cameraRef = useRef({ x: 0, y: 0 });
   const selectedRef = useRef(1);
-  const selectedWallRef = useRef(0);
   const blockHotbarRef = useRef(DEFAULT_BLOCK_HOTBAR);
   const selectionHintRef = useRef({ text: "", color: "#86efac", until: 0 });
   const buildModeRef = useRef("foreground");
@@ -150,7 +149,6 @@ export default function MinecraftInspiredWebGame() {
   const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
 
   const [selected, setSelected] = useState(1);
-  const [selectedWall, setSelectedWall] = useState(0);
   const [blockHotbar, setBlockHotbar] = useState(DEFAULT_BLOCK_HOTBAR);
   const [inventory, setInventory] = useState(() => createInventory());
   const [buildMode, setBuildMode] = useState("foreground");
@@ -193,10 +191,6 @@ export default function MinecraftInspiredWebGame() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
-
-  useEffect(() => {
-    selectedWallRef.current = selectedWall;
-  }, [selectedWall]);
 
   useEffect(() => {
     blockHotbarRef.current = blockHotbar;
@@ -314,7 +308,7 @@ export default function MinecraftInspiredWebGame() {
 
       const item = FOREGROUND_ITEMS[blockHotbarRef.current[slotIndex]];
       setSelected(slotIndex);
-      if (item) showSelectionHint(item, "foreground");
+      if (item) showSelectionHint(item, buildModeRef.current);
     },
     [assignBlockToHotbar, showSelectionHint],
   );
@@ -338,16 +332,6 @@ export default function MinecraftInspiredWebGame() {
         ...current,
         message: `Picked ${item.name} for hotbar assignment.`,
       }));
-    },
-    [showSelectionHint],
-  );
-
-  const selectWall = useCallback(
-    (index) => {
-      const item = WALL_PLACEABLE[index];
-      if (!item) return;
-      setSelectedWall(index);
-      showSelectionHint(item, "background");
     },
     [showSelectionHint],
   );
@@ -679,7 +663,7 @@ export default function MinecraftInspiredWebGame() {
         ...statsValue,
         message:
           next === "background"
-            ? "Background wall mode: right click places walls, left click removes walls."
+            ? "Background mode: normal blocks place walls; ladders and torches keep special rules."
             : "Foreground block mode: right click places solid blocks, left click mines.",
       }));
       return next;
@@ -713,6 +697,7 @@ export default function MinecraftInspiredWebGame() {
     );
     skyCoverageRef.current = createSkyCoverage(next.world);
     placedBlocksRef.current = new Set();
+    placedWallsRef.current = new Set();
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
     blockHotbarRef.current = [...DEFAULT_BLOCK_HOTBAR];
@@ -736,7 +721,6 @@ export default function MinecraftInspiredWebGame() {
     cameraRef.current = { x: 0, y: 0 };
     setBlockHotbar([...DEFAULT_BLOCK_HOTBAR]);
     setSelected(0);
-    setSelectedWall(0);
     setBuildMode("foreground");
     setGameSettings({ ...DEFAULT_GAME_SETTINGS });
     setStats(createStats("New world generated."));
@@ -747,15 +731,32 @@ export default function MinecraftInspiredWebGame() {
     const player = playerRef.current;
     const centerX = Math.floor((player.x + player.w / 2) / TILE);
     const centerY = Math.floor((player.y + player.h / 2) / TILE);
-    const wall = WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall;
-    const wallItemId = getWallItemId(wall);
-    const available = getItemCount(inventoryRef, wallItemId);
+    const item = FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+    const itemId = getForegroundItemId(item);
+    const wall = getBackgroundWallForBlock(item);
+    const available = getItemCount(inventoryRef, itemId);
     let count = 0;
 
-    if (!wallItemId || available <= 0) {
+    if (!item) {
       setStats((current) => ({
         ...current,
-        message: `You do not have ${wall.name}.`,
+        message: "Select a normal block before filling a background area.",
+      }));
+      return;
+    }
+
+    if (!wall) {
+      setStats((current) => ({
+        ...current,
+        message: `${item.name} cannot fill a background wall area.`,
+      }));
+      return;
+    }
+
+    if (!itemId || available <= 0) {
+      setStats((current) => ({
+        ...current,
+        message: `You do not have ${item.name}.`,
       }));
       return;
     }
@@ -766,13 +767,14 @@ export default function MinecraftInspiredWebGame() {
         if (count >= available) break;
         if (wallsRef.current[y][x] !== wall.id) {
           wallsRef.current[y][x] = wall.id;
+          placedWallsRef.current.add(`${x},${y}`);
           count++;
         }
       }
     }
 
     if (count > 0) {
-      removeItem(inventoryRef, wallItemId, count);
+      removeItem(inventoryRef, itemId, count);
       publishInventory();
     }
 
@@ -781,7 +783,7 @@ export default function MinecraftInspiredWebGame() {
       wallsBuilt: current.wallsBuilt + count,
       message:
         count > 0
-          ? `Filled a ${wall.name.toLowerCase()} background area behind you.`
+          ? `Filled a ${wall.name.toLowerCase()} background area using ${item.name}.`
           : "That background area already uses this wall.",
     }));
   };
@@ -820,9 +822,7 @@ export default function MinecraftInspiredWebGame() {
     pressedRef,
     inventoryOpenRef,
     carriedPlaceableRef,
-    buildModeRef,
     selectBlock,
-    selectWall,
     toggleBuildMode,
     fillHouseBackground,
     resetWorld,
@@ -946,13 +946,13 @@ export default function MinecraftInspiredWebGame() {
         wallsRef,
         laddersRef,
         buildModeRef,
-        selectedWallRef,
         selectedRef,
         blockHotbarRef,
         miningRef,
         waterLevelsRef,
         waterSourcesRef,
         placedBlocksRef,
+        placedWallsRef,
         anchoredLaddersRef,
         particlesRef,
         skyCoverageRef,
@@ -973,12 +973,14 @@ export default function MinecraftInspiredWebGame() {
       const waterLevels = waterLevelsRef.current;
       const ladders = laddersRef.current;
       const skyCoverage = skyCoverageRef.current;
+      const selectedHotbarItem =
+        FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
       const heldItem =
-        buildModeRef.current === "background"
-          ? (WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall)
-          : FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+        selectedHotbarItem?.wallId !== undefined
+          ? WALL_BY_ID[selectedHotbarItem.wallId]
+          : selectedHotbarItem;
       const heldItemType =
-        buildModeRef.current === "background"
+        selectedHotbarItem?.wallId !== undefined
           ? "wall"
           : heldItem?.kind === "tool"
             ? "tool"
@@ -1194,7 +1196,6 @@ export default function MinecraftInspiredWebGame() {
         buildMode: buildModeRef.current,
         blockHotbar: blockHotbarRef.current,
         selected: selectedRef.current,
-        selectedWall: selectedWallRef.current,
         inventory: inventoryRef.current,
       });
       drawSelectionHint(uiCtx, selectionHintRef.current);
@@ -1258,7 +1259,6 @@ export default function MinecraftInspiredWebGame() {
                 <WorkbenchPanel
                   buildMode={buildMode}
                   selected={selected}
-                  selectedWall={selectedWall}
                   blockHotbar={blockHotbar}
                   inventory={inventory}
                   craftingGrid={workbenchCraftingGrid}
@@ -1276,7 +1276,6 @@ export default function MinecraftInspiredWebGame() {
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}
                   onSwapHotbarSlots={swapHotbarSlots}
-                  onSelectWall={selectWall}
                   onSetForegroundMode={() => setBuildMode("foreground")}
                   onSetBackgroundMode={() => setBuildMode("background")}
                   carriedPlaceableIndex={carriedPlaceableIndex}
@@ -1286,7 +1285,6 @@ export default function MinecraftInspiredWebGame() {
                 <InventoryPanel
                   buildMode={buildMode}
                   selected={selected}
-                  selectedWall={selectedWall}
                   blockHotbar={blockHotbar}
                   inventory={inventory}
                   craftingGrid={inventoryCraftingGrid}
@@ -1304,7 +1302,6 @@ export default function MinecraftInspiredWebGame() {
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}
                   onSwapHotbarSlots={swapHotbarSlots}
-                  onSelectWall={selectWall}
                   onSetForegroundMode={() => setBuildMode("foreground")}
                   onSetBackgroundMode={() => setBuildMode("background")}
                   carriedPlaceableIndex={carriedPlaceableIndex}

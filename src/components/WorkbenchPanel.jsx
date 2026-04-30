@@ -9,7 +9,7 @@ export default function WorkbenchPanel(props) {
       craftingTitle="Workbench"
       craftingSize={3}
       panelTitle="Workbench"
-      panelSubtitle="Use the 3x3 grid for tools, ladders, walls, and larger recipes."
+      panelSubtitle="Use the 3x3 grid for tools, ladders, and larger block recipes."
     />
   );
 }

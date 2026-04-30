@@ -69,71 +69,9 @@ export const RECIPES = [
     amount: 1,
   },
 
-  // Basic background walls without workbench
-  {
-    id: "simple-wood-wall",
-    name: "Wood Wall",
-    size: "2x2",
-    pattern: ["PP", "PP"],
-    key: { P: "planks" },
-    output: "woodWall",
-    amount: 4,
-  },
-  {
-    id: "simple-stone-wall",
-    name: "Stone Wall",
-    size: "2x2",
-    pattern: ["SS", "SS"],
-    key: { S: "stone" },
-    output: "stoneWall",
-    amount: 4,
-  },
-
   // =========================
   // 3x3 WORKBENCH CRAFTING
   // =========================
-
-  // Walls
-  {
-    id: "wood-wall",
-    name: "Wood Wall",
-    size: "3x3",
-    pattern: ["PPP", "PPP"],
-    key: { P: "planks" },
-    output: "woodWall",
-    amount: 8,
-    station: "workbench",
-  },
-  {
-    id: "stone-wall",
-    name: "Stone Wall",
-    size: "3x3",
-    pattern: ["SSS", "SSS"],
-    key: { S: "stone" },
-    output: "stoneWall",
-    amount: 8,
-    station: "workbench",
-  },
-  {
-    id: "brick-wall",
-    name: "Brick Wall",
-    size: "3x3",
-    pattern: ["BBB", "BBB"],
-    key: { B: "brick" },
-    output: "brickWall",
-    amount: 8,
-    station: "workbench",
-  },
-  {
-    id: "glass-wall",
-    name: "Glass Wall",
-    size: "3x3",
-    pattern: ["GGG", "GGG"],
-    key: { G: "glass" },
-    output: "glassWall",
-    amount: 8,
-    station: "workbench",
-  },
 
   // Building blocks
   {

@@ -5,14 +5,18 @@ import {
   SEA_LEVEL,
   TILE,
   WALL_BY_ID,
-  WALL_PLACEABLE,
   WALLS,
   WORLD_H,
   WORLD_W,
 } from "../constants";
 import { getBlockDrops, getWallDrops, formatDrops } from "../drops";
-import { getItemCount, removeItem } from "../inventory";
-import { getForegroundItemId, getWallItemId } from "../items";
+import { consumeInventoryItem, getItemCount } from "../inventory";
+import {
+  canPlaceAsForeground,
+  getBackgroundWallForBlock,
+  getForegroundItemId,
+  getItemForRemovedBackgroundWall,
+} from "../items";
 import { updateSkyCoverageColumn } from "../rendering";
 import { emitParticles } from "../world";
 import { spawnDroppedItems } from "./droppedItems";
@@ -130,6 +134,104 @@ function isStoneLayerBlock(block) {
   );
 }
 
+function selectedHotbarItem(blockHotbarRef, selectedRef) {
+  return FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+}
+
+function isTorchItem(itemId) {
+  return itemId === "torch";
+}
+
+function isLadderItem(itemId) {
+  return itemId === "ladder";
+}
+
+function getPlayerPlacedWallDrops(placedWallsRef, wall, blockKey) {
+  if (!placedWallsRef.current.delete(blockKey)) return [];
+  const itemId = getItemForRemovedBackgroundWall(wall);
+  return itemId ? [{ itemId, amount: 1 }] : [];
+}
+
+function placeTorchBlock({
+  world,
+  walls,
+  worldX,
+  worldY,
+  player,
+  inventoryRef,
+  waterLevelsRef,
+  waterSourcesRef,
+  placedBlocksRef,
+  particlesRef,
+  skyCoverageRef,
+  onInventoryChange,
+  setStats,
+  stepWaterFlow,
+}) {
+  const blockKey = `${worldX},${worldY}`;
+  const currentBlock = BLOCK_BY_ID[world[worldY][worldX]] ?? BLOCKS.air;
+  const px = worldX * TILE;
+  const py = worldY * TILE;
+  const touchingPlayer = !(
+    px + TILE <= player.x ||
+    px >= player.x + player.w ||
+    py + TILE <= player.y ||
+    py >= player.y + player.h
+  );
+  const replacingWater = currentBlock.id === BLOCKS.water.id;
+
+  if (getItemCount(inventoryRef, "torch") <= 0) {
+    setStats((current) => ({
+      ...current,
+      message: "You do not have Torch.",
+    }));
+    return false;
+  }
+
+  if (
+    currentBlock.id !== BLOCKS.air.id &&
+    currentBlock.id !== BLOCKS.water.id
+  ) {
+    return false;
+  }
+
+  if (touchingPlayer) return false;
+
+  if (!torchHasSupport(world, walls, worldX, worldY)) {
+    setStats((current) => ({
+      ...current,
+      message: "Torches need a solid block nearby or a background wall.",
+    }));
+    return false;
+  }
+
+  if (replacingWater) {
+    waterLevelsRef.current[worldY][worldX] = -1;
+    waterSourcesRef.current.delete(blockKey);
+    placedBlocksRef.current.delete(blockKey);
+  }
+
+  consumeInventoryItem(inventoryRef, "torch", 1);
+  onInventoryChange?.();
+  world[worldY][worldX] = BLOCKS.torch.id;
+  updateSkyCoverageColumn(world, skyCoverageRef.current, worldX);
+  placedBlocksRef.current.add(blockKey);
+  emitParticles(
+    particlesRef.current,
+    worldX * TILE + TILE / 2,
+    worldY * TILE + TILE / 2,
+    BLOCKS.torch.color,
+    6,
+  );
+  setStats((current) => ({
+    ...current,
+    blocksPlaced: current.blocksPlaced + 1,
+    message: "Placed Torch.",
+  }));
+  if (replacingWater) stepWaterFlow();
+  return true;
+}
+
 export function mineOrPlace({
   dt,
   mineCooldown,
@@ -140,13 +242,13 @@ export function mineOrPlace({
   wallsRef,
   laddersRef,
   buildModeRef,
-  selectedWallRef,
   selectedRef,
   blockHotbarRef,
   miningRef,
   waterLevelsRef,
   waterSourcesRef,
   placedBlocksRef,
+  placedWallsRef,
   anchoredLaddersRef,
   particlesRef,
   skyCoverageRef,
@@ -197,13 +299,16 @@ export function mineOrPlace({
   const world = worldRef.current;
   const walls = wallsRef.current;
   const ladders = laddersRef.current;
+  const currentBlock = BLOCK_BY_ID[world[worldY][worldX]] ?? BLOCKS.air;
+  const blockKey = `${worldX},${worldY}`;
 
   if (buildModeRef.current === "background") {
     resetMiningState(miningRef);
-    const wall = WALL_PLACEABLE[selectedWallRef.current] ?? WALLS.woodWall;
+    const placeItem = selectedHotbarItem(blockHotbarRef, selectedRef);
+    const placeItemId = getForegroundItemId(placeItem);
 
     if (mouse.button === 0) {
-      if (wall.id === WALLS.ladder.id && ladders[worldY][worldX]) {
+      if (isLadderItem(placeItemId) && ladders[worldY][worldX]) {
         ladders[worldY][worldX] = false;
         anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
         const drops = getWallDrops(WALLS.ladder);
@@ -217,7 +322,7 @@ export function mineOrPlace({
           particlesRef.current,
           worldX * TILE + TILE / 2,
           worldY * TILE + TILE / 2,
-          wall.color,
+          WALLS.ladder.color,
           5,
         );
         setStats((current) => ({
@@ -229,6 +334,11 @@ export function mineOrPlace({
         const replacementWall = naturalBackdropFor(world, worldX, worldY);
         walls[worldY][worldX] =
           worldY >= SEA_LEVEL ? replacementWall : WALLS.empty.id;
+        const drops = getPlayerPlacedWallDrops(
+          placedWallsRef,
+          removedWall,
+          blockKey,
+        );
         const torchesRemoved = removeUnsupportedTorches({
           world,
           walls,
@@ -245,7 +355,6 @@ export function mineOrPlace({
           particlesRef,
           droppedItemsRef,
         });
-        const drops = getWallDrops(removedWall);
         spawnDroppedItems(
           droppedItemsRef,
           drops,
@@ -273,29 +382,68 @@ export function mineOrPlace({
     }
 
     if (mouse.button === 2) {
-      const wallItemId = getWallItemId(wall);
-      const canPlaceWall =
-        wall.id !== WALLS.ladder.id ||
-        ladderHasAnchor(walls, ladders, worldX, worldY);
-
-      if (!wallItemId || getItemCount(inventoryRef, wallItemId) <= 0) {
+      if (!placeItem) {
         setStats((current) => ({
           ...current,
-          message: `You do not have ${wall.name}.`,
+          message: "That hotbar slot is empty.",
+        }));
+        return 0.14;
+      }
+
+      if (placeItem.kind === "tool") {
+        setStats((current) => ({
+          ...current,
+          message:
+            placeItem.id === "sticks"
+              ? "Stick cannot be placed."
+              : `${placeItem.name}s are for mining, not placing.`,
+        }));
+        return 0.14;
+      }
+
+      if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
+        setStats((current) => ({
+          ...current,
+          message: `You do not have ${placeItem.name}.`,
         }));
         return 0.12;
       }
 
-      if (!canPlaceWall) {
-        setStats((current) => ({
-          ...current,
-          message:
-            "Ladders need a background wall, or another ladder connected vertically to one.",
-        }));
-        return 0.08;
+      if (isTorchItem(placeItemId)) {
+        if (
+          placeTorchBlock({
+            world,
+            walls,
+            worldX,
+            worldY,
+            player,
+            inventoryRef,
+            waterLevelsRef,
+            waterSourcesRef,
+            placedBlocksRef,
+            particlesRef,
+            skyCoverageRef,
+            onInventoryChange,
+            setStats,
+            stepWaterFlow,
+          })
+        ) {
+          nextMineCooldown = 0.12;
+        } else {
+          nextMineCooldown = 0.08;
+        }
+        return nextMineCooldown;
       }
 
-      if (wall.id === WALLS.ladder.id) {
+      if (isLadderItem(placeItemId)) {
+        if (!ladderHasAnchor(walls, ladders, worldX, worldY)) {
+          setStats((current) => ({
+            ...current,
+            message:
+              "Ladders need a background wall, or another ladder connected vertically to one.",
+          }));
+          return 0.08;
+        }
         if (ladders[worldY][worldX]) {
           return 0.08;
         }
@@ -303,20 +451,54 @@ export function mineOrPlace({
         if (walls[worldY][worldX] !== WALLS.empty.id) {
           anchoredLaddersRef.current.add(`${worldX},${worldY}`);
         }
-      } else if (walls[worldY][worldX] !== wall.id) {
+        consumeInventoryItem(inventoryRef, placeItemId, 1);
+        onInventoryChange?.();
+        emitParticles(
+          particlesRef.current,
+          worldX * TILE + TILE / 2,
+          worldY * TILE + TILE / 2,
+          WALLS.ladder.color,
+          5,
+        );
+        setStats((current) => ({
+          ...current,
+          wallsBuilt: current.wallsBuilt + 1,
+          message: "Placed Ladder.",
+        }));
+        return 0.08;
+      }
+
+      const wall = getBackgroundWallForBlock(placeItem);
+      if (!wall) {
+        setStats((current) => ({
+          ...current,
+          message: `${placeItem.name} cannot be placed as a background wall.`,
+        }));
+        return 0.12;
+      }
+
+      if (walls[worldY][worldX] !== wall.id) {
         const replacedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
+        const replacedDrops = getPlayerPlacedWallDrops(
+          placedWallsRef,
+          replacedWall,
+          blockKey,
+        );
         spawnDroppedItems(
           droppedItemsRef,
-          getWallDrops(replacedWall),
+          replacedDrops,
           worldX * TILE + TILE / 2,
           worldY * TILE + TILE / 2,
         );
         walls[worldY][worldX] = wall.id;
-        anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
+        placedWallsRef.current.add(blockKey);
+        if (ladders[worldY][worldX]) {
+          anchoredLaddersRef.current.add(`${worldX},${worldY}`);
+        }
       } else {
         return 0.08;
       }
-      removeItem(inventoryRef, wallItemId, 1);
+      consumeInventoryItem(inventoryRef, placeItemId, 1);
       onInventoryChange?.();
       emitParticles(
         particlesRef.current,
@@ -328,16 +510,13 @@ export function mineOrPlace({
       setStats((current) => ({
         ...current,
         wallsBuilt: current.wallsBuilt + 1,
-        message: `Placed ${wall.name}. Background walls do not block movement.`,
+        message: `Placed ${wall.name} from ${placeItem.name}. Background walls do not block movement.`,
       }));
       nextMineCooldown = 0.08;
     }
 
     return nextMineCooldown;
   }
-
-  const currentBlock = BLOCK_BY_ID[world[worldY][worldX]] ?? BLOCKS.air;
-  const blockKey = `${worldX},${worldY}`;
 
   if (mouse.button === 2 && currentBlock.id === BLOCKS.workbench.id) {
     resetMiningState(miningRef);
@@ -492,6 +671,18 @@ export function mineOrPlace({
       }));
       return 0.14;
     }
+
+    if (!canPlaceAsForeground(placeBlock)) {
+      setStats((current) => ({
+        ...current,
+        message:
+          placeBlock.id === "ladder"
+            ? "Ladders can only be placed in background mode."
+            : `${placeBlock.name} cannot be placed as a foreground block.`,
+      }));
+      return 0.14;
+    }
+
     const placeItemId = getForegroundItemId(placeBlock);
     if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
       setStats((current) => ({
@@ -533,7 +724,7 @@ export function mineOrPlace({
         waterSourcesRef.current.delete(blockKey);
         placedBlocksRef.current.delete(blockKey);
       }
-      removeItem(inventoryRef, placeItemId, 1);
+      consumeInventoryItem(inventoryRef, placeItemId, 1);
       onInventoryChange?.();
       world[worldY][worldX] = placeBlock.id;
       if (placeBlock.id === BLOCKS.water.id) {
