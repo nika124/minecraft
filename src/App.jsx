@@ -77,7 +77,9 @@ import {
   updateParticles,
 } from "./game/world";
 
-const createDefaultBlockHotbar = () => Array(10).fill(null);
+import { HOTBAR_SLOT_COUNT } from "./game/ui/hotbarLayout";
+
+const createDefaultBlockHotbar = () => Array(HOTBAR_SLOT_COUNT).fill(null);
 
 const createDefaultGameSettings = () => ({
   movementSpeed: 1,

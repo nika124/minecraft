@@ -22,7 +22,7 @@ import {
   getWallTexture,
 } from "../game/textures";
 import CraftingGrid from "./CraftingGrid";
-
+import { getHotbarSlotLabel } from "../game/ui/hotbarLayout";
 const textureUrlCache = new WeakMap();
 
 function getTextureUrl(texture) {
@@ -448,7 +448,7 @@ export default function InventoryPanel({
               className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!item ? "is-empty" : ""}`}
             >
               <span className="slot-key">
-                {slotIndex === 9 ? "0" : slotIndex + 1}
+                {getHotbarSlotLabel(slotIndex)}
               </span>
               {item ? (
                 renderTextureSwatch(item, "block")
