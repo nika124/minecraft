@@ -365,7 +365,7 @@ export default function InventoryPanel({
                         <span>{item.name}</span>
                         <small>
                           {equippedSlot !== -1
-                            ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+                            ? `Equipped in ${getHotbarSlotLabel(equippedSlot)}`
                             : backgroundWall
                               ? `Foreground + background`
                               : item.id === "ladder"

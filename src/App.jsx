@@ -84,8 +84,14 @@ import {
 
 const createDefaultBlockHotbar = () => Array(HOTBAR_SLOT_COUNT).fill(null);
 
-const createInventoryCraftingGrid = () => Array(4).fill(null);
-const createWorkbenchCraftingGrid = () => Array(9).fill(null);
+const INVENTORY_CRAFTING_SIZE = 2;
+const WORKBENCH_CRAFTING_SIZE = 3;
+
+const createInventoryCraftingGrid = () =>
+  Array(INVENTORY_CRAFTING_SIZE ** 2).fill(null);
+
+const createWorkbenchCraftingGrid = () =>
+  Array(WORKBENCH_CRAFTING_SIZE ** 2).fill(null);
 
 const createDefaultGameSettings = () => ({
   movementSpeed: 1,
@@ -764,19 +770,19 @@ export default function MinecraftInspiredWebGame() {
     [activeCraftingGrid, publishCraftingState],
   );
 
-  const inventoryCraftingOutput = getCraftingOutput(
+    const inventoryCraftingOutput = getCraftingOutput(
     inventoryCraftingGrid,
-    2,
-    2,
+    INVENTORY_CRAFTING_SIZE,
+    INVENTORY_CRAFTING_SIZE,
     null,
   );
-  const workbenchCraftingOutput = getCraftingOutput(
+
+    const workbenchCraftingOutput = getCraftingOutput(
     workbenchCraftingGrid,
-    3,
-    3,
+    WORKBENCH_CRAFTING_SIZE,
+    WORKBENCH_CRAFTING_SIZE,
     "workbench",
   );
-
   const handleCloseInventory = useCallback(() => {
     closeInventoryPanel();
   }, [closeInventoryPanel]);
