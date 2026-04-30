@@ -1,7 +1,5 @@
 import ItemSlot from "./ItemSlot";
 
-void ItemSlot;
-
 export default function CraftingGrid({
   title,
   size,
@@ -41,11 +39,15 @@ export default function CraftingGrid({
           &gt;
         </span>
         <ItemSlot
-          stack={output ? { itemId: output.itemId, amount: output.amount } : null}
+          stack={
+            output ? { itemId: output.itemId, amount: output.amount } : null
+          }
           label=""
           output
           renderItem={renderItem}
-          onMouseDown={(event) => onOutputMouseDown(event.button, event.ctrlKey)}
+          onMouseDown={(event) =>
+            onOutputMouseDown(event.button, event.ctrlKey)
+          }
         />
       </div>
     </div>

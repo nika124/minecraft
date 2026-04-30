@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { VIEW_H, VIEW_W } from "../game/constants";
-
-const HOTBAR_SLOT_COUNT = 10;
+import { HOTBAR_SLOT_COUNT, getHotbarSlotAt } from "../game/ui/hotbarLayout";
 
 export function useKeyboardControls({
   isInventoryOpen,
@@ -158,23 +157,12 @@ export function useCanvasMouseControls({
       setMouseFromEvent(event);
 
       if (inventoryOpenRef.current) {
-        const slot = 48;
-        const gap = 6;
-        const count = HOTBAR_SLOT_COUNT;
-        const totalW = count * slot + (count - 1) * gap;
-        const startX = (VIEW_W - totalW) / 2;
-        const y = VIEW_H - 62;
-        const slotIndex = Array.from({ length: count }, (_, index) => {
-          const x = startX + index * (slot + gap);
-          return mouseRef.current.x >= x &&
-            mouseRef.current.x <= x + slot &&
-            mouseRef.current.y >= y &&
-            mouseRef.current.y <= y + slot
-            ? index
-            : -1;
-        }).find((index) => index !== -1);
+        const slotIndex = getHotbarSlotAt(
+          mouseRef.current.x,
+          mouseRef.current.y,
+        );
 
-        if (slotIndex !== undefined && carriedPlaceableRef.current !== null) {
+        if (slotIndex !== null && carriedPlaceableRef.current !== null) {
           selectBlock(slotIndex);
         }
         return;

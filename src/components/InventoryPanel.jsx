@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
-  BLOCK_BY_ID,
-  FOREGROUND_ITEMS,
-  WALL_BY_ID,
-} from "../game/constants";
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { BLOCK_BY_ID, FOREGROUND_ITEMS, WALL_BY_ID } from "../game/constants";
 import { getItemCount } from "../game/inventory";
 import {
   ITEM_LIST,
@@ -21,7 +23,17 @@ import {
 } from "../game/textures";
 import CraftingGrid from "./CraftingGrid";
 
-void CraftingGrid;
+const textureUrlCache = new WeakMap();
+
+function getTextureUrl(texture) {
+  if (!texture) return "";
+
+  if (!textureUrlCache.has(texture)) {
+    textureUrlCache.set(texture, texture.toDataURL());
+  }
+
+  return textureUrlCache.get(texture);
+}
 
 function renderTextureSwatch(item, type) {
   const texture =
@@ -31,11 +43,11 @@ function renderTextureSwatch(item, type) {
         ? getItemTexture(item)
         : item.wallId !== undefined
           ? getWallTexture(WALL_BY_ID[item.wallId])
-        : getBlockTexture(item);
+          : getBlockTexture(item);
   return (
     <span
       className="swatch texture-swatch"
-      style={{ backgroundImage: `url(${texture.toDataURL()})` }}
+      style={{ backgroundImage: `url(${getTextureUrl(texture)})` }}
       aria-hidden="true"
     />
   );
@@ -51,7 +63,9 @@ function renderInventorySwatch(item) {
   }
 
   if (item.category === "Tools") {
-    const tool = FOREGROUND_ITEMS.find((foregroundItem) => foregroundItem.id === item.id);
+    const tool = FOREGROUND_ITEMS.find(
+      (foregroundItem) => foregroundItem.id === item.id,
+    );
     if (tool) return renderTextureSwatch(tool, "block");
   }
 
@@ -212,7 +226,7 @@ export default function InventoryPanel({
   const overlayTarget =
     overlayRoot ??
     (typeof document !== "undefined"
-      ? document.fullscreenElement ?? document.body
+      ? (document.fullscreenElement ?? document.body)
       : null);
 
   useLayoutEffect(() => {
@@ -242,7 +256,9 @@ export default function InventoryPanel({
   const inventoryGroups = categoryOrder
     .map((category) => ({
       category,
-      items: ITEM_LIST.filter((item) => getInventoryCategory(item) === category),
+      items: ITEM_LIST.filter(
+        (item) => getInventoryCategory(item) === category,
+      ),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -267,7 +283,11 @@ export default function InventoryPanel({
                   : panelSubtitle}
             </small>
           </div>
-          <button onClick={onClose} className="inventory-close" aria-label="Close inventory">
+          <button
+            onClick={onClose}
+            className="inventory-close"
+            aria-label="Close inventory"
+          >
             Close
           </button>
         </div>
@@ -300,70 +320,70 @@ export default function InventoryPanel({
                 onDrop={handleInventoryDrop}
               >
                 {group.items.map((item) => {
-              const count = getItemCount(inventory, item.id);
-              const foregroundIndex = getForegroundIndexForItem(item.id);
-              const isAssignable = foregroundIndex !== null;
-              const equippedSlot = isAssignable
-                ? blockHotbar.indexOf(foregroundIndex)
-                : -1;
-              const isCarried = carriedPlaceableIndex === foregroundIndex;
-              const backgroundWall = getBackgroundWallForBlock(item);
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  draggable={isAssignable && count > 0}
-                  disabled={count <= 0 && !cursorStack}
-                  onMouseDown={(event) => {
-                    updateCursorPosition(event);
-                    event.preventDefault();
-                    onInventorySlotMouseDown(
-                      item.id,
-                      event.button,
-                      event.ctrlKey,
-                    );
-                  }}
-                  onMouseEnter={(event) =>
-                    onInventorySlotMouseEnter?.(
-                      item.id,
-                      event.buttons,
-                      event.ctrlKey,
-                    )
-                  }
-                  onContextMenu={(event) => event.preventDefault()}
-                  onClick={(event) => event.preventDefault()}
-                  onDragStart={(event) => {
-                    if (!isAssignable || count <= 0) return;
-                    onChooseInventoryBlock(foregroundIndex);
-                    setDragData(event, `inventory:${foregroundIndex}`);
-                  }}
-                  className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
-                >
-                  {renderInventorySwatch(item)}
-                  <span className="item-count">{count}</span>
-                  <span className="palette-copy">
-                    <span>{item.name}</span>
-                    <small>
-                      {equippedSlot !== -1
-                        ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
-                        : backgroundWall
-                          ? `Foreground + background`
-                          : item.id === "ladder"
-                            ? "Background ladder"
-                            : item.category === "Tools"
-                              ? "Mining tool"
-                              : item.id === "torch"
-                                ? "Light source"
-                                : item.id === "water"
-                                  ? "Flowing liquid"
-                                  : isAssignable
-                                    ? "Can equip"
-                                    : "Crafting item"}
-                    </small>
-                  </span>
-                </button>
-              );
-            })}
+                  const count = getItemCount(inventory, item.id);
+                  const foregroundIndex = getForegroundIndexForItem(item.id);
+                  const isAssignable = foregroundIndex !== null;
+                  const equippedSlot = isAssignable
+                    ? blockHotbar.indexOf(foregroundIndex)
+                    : -1;
+                  const isCarried = carriedPlaceableIndex === foregroundIndex;
+                  const backgroundWall = getBackgroundWallForBlock(item);
+                  return (
+                    <button
+                      type="button"
+                      key={item.id}
+                      draggable={isAssignable && count > 0}
+                      disabled={count <= 0 && !cursorStack}
+                      onMouseDown={(event) => {
+                        updateCursorPosition(event);
+                        event.preventDefault();
+                        onInventorySlotMouseDown(
+                          item.id,
+                          event.button,
+                          event.ctrlKey,
+                        );
+                      }}
+                      onMouseEnter={(event) =>
+                        onInventorySlotMouseEnter?.(
+                          item.id,
+                          event.buttons,
+                          event.ctrlKey,
+                        )
+                      }
+                      onContextMenu={(event) => event.preventDefault()}
+                      onClick={(event) => event.preventDefault()}
+                      onDragStart={(event) => {
+                        if (!isAssignable || count <= 0) return;
+                        onChooseInventoryBlock(foregroundIndex);
+                        setDragData(event, `inventory:${foregroundIndex}`);
+                      }}
+                      className={`palette-item ${isCarried ? "is-carried" : ""} ${count <= 0 ? "is-empty-count" : ""}`}
+                    >
+                      {renderInventorySwatch(item)}
+                      <span className="item-count">{count}</span>
+                      <span className="palette-copy">
+                        <span>{item.name}</span>
+                        <small>
+                          {equippedSlot !== -1
+                            ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
+                            : backgroundWall
+                              ? `Foreground + background`
+                              : item.id === "ladder"
+                                ? "Background ladder"
+                                : item.category === "Tools"
+                                  ? "Mining tool"
+                                  : item.id === "torch"
+                                    ? "Light source"
+                                    : item.id === "water"
+                                      ? "Flowing liquid"
+                                      : isAssignable
+                                        ? "Can equip"
+                                        : "Crafting item"}
+                        </small>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -427,9 +447,17 @@ export default function InventoryPanel({
               onDrop={(event) => handleHotbarDrop(event, slotIndex)}
               className={`hotbar-editor-slot ${selected === slotIndex ? "is-selected" : ""} ${!item ? "is-empty" : ""}`}
             >
-              <span className="slot-key">{slotIndex === 9 ? "0" : slotIndex + 1}</span>
-              {item ? renderTextureSwatch(item, "block") : <span className="empty-slot" />}
-              {item ? <span className="item-count hotbar-count">{count}</span> : null}
+              <span className="slot-key">
+                {slotIndex === 9 ? "0" : slotIndex + 1}
+              </span>
+              {item ? (
+                renderTextureSwatch(item, "block")
+              ) : (
+                <span className="empty-slot" />
+              )}
+              {item ? (
+                <span className="item-count hotbar-count">{count}</span>
+              ) : null}
               <span>{item?.name ?? "Empty"}</span>
             </button>
           );

@@ -1,7 +1,5 @@
 import InventoryPanel from "./InventoryPanel";
 
-void InventoryPanel;
-
 export default function WorkbenchPanel(props) {
   return (
     <InventoryPanel

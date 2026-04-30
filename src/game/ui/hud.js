@@ -3,6 +3,14 @@ import { getItemCount } from "../inventory";
 import { getForegroundItemId } from "../items";
 import { getBlockTexture, getItemTexture, getWallTexture } from "../textures";
 import { clamp } from "../world";
+import {
+  HOTBAR_SLOT_COUNT,
+  HOTBAR_SLOT_GAP,
+  HOTBAR_SLOT_SIZE,
+  HOTBAR_Y,
+  getHotbarSlotLabel,
+  getHotbarStartX,
+} from "./hotbarLayout";
 
 function drawPanel(ctx, x, y, w, h, fill = "#c6c6c6") {
   ctx.fillStyle = fill;
@@ -57,20 +65,14 @@ function drawBeveledRect(ctx, x, y, w, h, fill = "#a3a3a3") {
 }
 
 export function drawHotbar(ctx, state) {
-  const {
-    buildMode,
-    blockHotbar,
-    selected,
-    inventory,
-  } = state;
+  const { buildMode, blockHotbar, selected, inventory } = state;
   const items = blockHotbar.map((index) => FOREGROUND_ITEMS[index]);
   const selectedIndex = selected;
-  const slot = 48;
-  const gap = 6;
-  const count = 10;
-  const totalW = count * slot + (count - 1) * gap;
-  const startX = (VIEW_W - totalW) / 2;
-  const y = VIEW_H - 62;
+  const slot = HOTBAR_SLOT_SIZE;
+  const gap = HOTBAR_SLOT_GAP;
+  const count = HOTBAR_SLOT_COUNT;
+  const startX = getHotbarStartX();
+  const y = HOTBAR_Y;
 
   for (let i = 0; i < count; i++) {
     const item = items[i];
@@ -92,10 +94,10 @@ export function drawHotbar(ctx, state) {
       const count = getItemCount(inventory, itemId);
       const texture =
         item.kind === "tool"
-            ? getItemTexture(item)
-            : item.wallId !== undefined
-              ? getWallTexture(WALL_BY_ID[item.wallId])
-              : getBlockTexture(item);
+          ? getItemTexture(item)
+          : item.wallId !== undefined
+            ? getWallTexture(WALL_BY_ID[item.wallId])
+            : getBlockTexture(item);
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(texture, x + 11, y + 10, 26, 26);
@@ -106,7 +108,7 @@ export function drawHotbar(ctx, state) {
       ctx.fillStyle = "#dcfce7";
       ctx.font = "900 11px ui-monospace, Cascadia Mono, Consolas, monospace";
       ctx.textAlign = "left";
-      ctx.fillText(i === 9 ? "0" : String(i + 1), x + 5, y + 14);
+      ctx.fillText(getHotbarSlotLabel(i), x + 5, y + 14);
 
       ctx.fillStyle = count > 0 ? "#f8fafc" : "#fecaca";
       ctx.strokeStyle = "rgba(15,23,42,.85)";

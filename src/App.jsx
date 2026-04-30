@@ -64,11 +64,7 @@ import {
   drawDroppedItems,
   updateDroppedItems,
 } from "./game/simulation/droppedItems";
-import {
-  drawHotbar,
-  drawPauseMenu,
-  drawSelectionHint,
-} from "./game/ui/hud";
+import { drawHotbar, drawPauseMenu, drawSelectionHint } from "./game/ui/hud";
 import {
   useCanvasMouseControls,
   useKeyboardControls,
@@ -81,22 +77,15 @@ import {
   updateParticles,
 } from "./game/world";
 
-void ControlsPanel;
-void GameHeader;
-void GameStage;
-void HelpOverlay;
-void InventoryPanel;
-void SettingsOverlay;
-void WorkbenchPanel;
+const createDefaultBlockHotbar = () => Array(10).fill(null);
 
-const DEFAULT_BLOCK_HOTBAR = Array(10).fill(null);
-const DEFAULT_GAME_SETTINGS = {
+const createDefaultGameSettings = () => ({
   movementSpeed: 1,
   dayCycleSpeed: 1,
   rainEnabled: false,
   rainIntensity: 0.65,
   skyMode: "cycle",
-};
+});
 const INITIAL_SKY_TIME = Math.PI / (2 * 0.018);
 
 export default function MinecraftInspiredWebGame() {
@@ -139,8 +128,8 @@ export default function MinecraftInspiredWebGame() {
   const rainRef = useRef(makeRainDrops());
   const playerRef = useRef(createPlayer());
   const cameraRef = useRef({ x: 0, y: 0 });
-  const selectedRef = useRef(1);
-  const blockHotbarRef = useRef(DEFAULT_BLOCK_HOTBAR);
+  const selectedRef = useRef(0);
+  const blockHotbarRef = useRef(createDefaultBlockHotbar());
   const selectionHintRef = useRef({ text: "", color: "#86efac", until: 0 });
   const buildModeRef = useRef("foreground");
   const pausedRef = useRef(false);
@@ -149,10 +138,12 @@ export default function MinecraftInspiredWebGame() {
   const carriedPlaceableRef = useRef(null);
   const carriedPlaceableSourceRef = useRef(null);
   const carriedPlaceableSourceSlotRef = useRef(null);
-  const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
+  const settingsRef = useRef(createDefaultGameSettings());
 
-  const [selected, setSelected] = useState(1);
-  const [blockHotbar, setBlockHotbar] = useState(DEFAULT_BLOCK_HOTBAR);
+  const [selected, setSelected] = useState(0);
+  const [blockHotbar, setBlockHotbar] = useState(() =>
+    createDefaultBlockHotbar(),
+  );
   const [inventory, setInventory] = useState(() => createInventory());
   const [buildMode, setBuildMode] = useState("foreground");
   const [stats, setStats] = useState(createStats());
@@ -170,7 +161,9 @@ export default function MinecraftInspiredWebGame() {
   );
   const [cursorStack, setCursorStack] = useState(null);
   const [carriedPlaceableIndex, setCarriedPlaceableIndex] = useState(null);
-  const [gameSettings, setGameSettings] = useState(DEFAULT_GAME_SETTINGS);
+  const [gameSettings, setGameSettings] = useState(() =>
+    createDefaultGameSettings(),
+  );
   const [worldSeed, setWorldSeed] = useState(1);
 
   if (skyCoverageRef.current === null) {
@@ -188,7 +181,9 @@ export default function MinecraftInspiredWebGame() {
   const publishCraftingState = useCallback(() => {
     setInventoryCraftingGrid([...inventoryCraftingGridRef.current]);
     setWorkbenchCraftingGrid([...workbenchCraftingGridRef.current]);
-    setCursorStack(cursorStackRef.current ? { ...cursorStackRef.current } : null);
+    setCursorStack(
+      cursorStackRef.current ? { ...cursorStackRef.current } : null,
+    );
   }, []);
 
   useEffect(() => {
@@ -509,16 +504,12 @@ export default function MinecraftInspiredWebGame() {
       const count = getItemCount(inventoryRef, itemId);
       const hasCursor = Boolean(cursorStackRef.current?.amount);
       const next =
-        hasCursor && (button === MOUSE_BUTTON.LEFT || button === MOUSE_BUTTON.RIGHT)
+        hasCursor &&
+        (button === MOUSE_BUTTON.LEFT || button === MOUSE_BUTTON.RIGHT)
           ? placeIntoItemCountSlot(itemId, count, cursorStackRef.current, {
               placeFull: ctrlKey,
             })
-          : clickInventoryCount(
-              itemId,
-              count,
-              cursorStackRef.current,
-              button,
-            );
+          : clickInventoryCount(itemId, count, cursorStackRef.current, button);
 
       const nextAmount = next.inventoryAmount ?? next.amount;
       if (nextAmount > count) {
@@ -528,7 +519,11 @@ export default function MinecraftInspiredWebGame() {
       }
 
       if (next.displacedStack) {
-        addItem(inventoryRef, next.displacedStack.itemId, next.displacedStack.amount);
+        addItem(
+          inventoryRef,
+          next.displacedStack.itemId,
+          next.displacedStack.amount,
+        );
       }
 
       if (hasCursor) {
@@ -556,9 +551,14 @@ export default function MinecraftInspiredWebGame() {
 
       const count = getItemCount(inventoryRef, itemId);
       const beforeCursorAmount = cursorStackRef.current.amount;
-      const next = placeIntoItemCountSlot(itemId, count, cursorStackRef.current, {
-        placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
-      });
+      const next = placeIntoItemCountSlot(
+        itemId,
+        count,
+        cursorStackRef.current,
+        {
+          placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
+        },
+      );
 
       if (next.amount > count) {
         addItem(inventoryRef, itemId, next.amount - count);
@@ -666,10 +666,14 @@ export default function MinecraftInspiredWebGame() {
       gridRef.current = grid;
       if (hasCursor) {
         isPaintingRef.current = true;
-        paintedSlotIdsRef.current.add(`${craftingPanelRef.current}:crafting:${slotIndex}`);
+        paintedSlotIdsRef.current.add(
+          `${craftingPanelRef.current}:crafting:${slotIndex}`,
+        );
       } else if (next.cursor?.amount) {
         pickedUpDuringMouseDownRef.current = true;
-        paintedSlotIdsRef.current.add(`${craftingPanelRef.current}:crafting:${slotIndex}`);
+        paintedSlotIdsRef.current.add(
+          `${craftingPanelRef.current}:crafting:${slotIndex}`,
+        );
       }
       publishCraftingState();
     },
@@ -686,10 +690,14 @@ export default function MinecraftInspiredWebGame() {
       const { gridRef } = activeCraftingGrid();
       const grid = [...gridRef.current];
       const beforeCursorAmount = cursorStackRef.current.amount;
-      const next = placeIntoCraftingSlot(grid[slotIndex], cursorStackRef.current, {
-        button: MOUSE_BUTTON.LEFT,
-        placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
-      });
+      const next = placeIntoCraftingSlot(
+        grid[slotIndex],
+        cursorStackRef.current,
+        {
+          button: MOUSE_BUTTON.LEFT,
+          placeFull: ctrlKey || pickedUpDuringMouseDownRef.current,
+        },
+      );
 
       grid[slotIndex] = next.slot;
       cursorStackRef.current = next.cursor;
@@ -714,33 +722,39 @@ export default function MinecraftInspiredWebGame() {
     return () => window.removeEventListener("mouseup", stopPainting);
   }, []);
 
-  const handleCraftingOutputMouseDown = useCallback((button) => {
-    if (button !== MOUSE_BUTTON.LEFT) return;
+  const handleCraftingOutputMouseDown = useCallback(
+    (button) => {
+      if (button !== MOUSE_BUTTON.LEFT) return;
 
-    const { gridRef, width, height, station } = activeCraftingGrid();
-    const output = getCraftingOutput(gridRef.current, width, height, station);
-    if (!output) return;
+      const { gridRef, width, height, station } = activeCraftingGrid();
+      const output = getCraftingOutput(gridRef.current, width, height, station);
+      if (!output) return;
 
-    const cursor = cursorStackRef.current;
-    if (cursor?.amount && cursor.itemId !== output.itemId) {
+      const cursor = cursorStackRef.current;
+      if (cursor?.amount && cursor.itemId !== output.itemId) {
+        setStats((current) => ({
+          ...current,
+          message: "Put down the held stack before taking this result.",
+        }));
+        return;
+      }
+
+      cursorStackRef.current = {
+        itemId: output.itemId,
+        amount: (cursor?.amount ?? 0) + output.amount,
+      };
+      gridRef.current = consumeCraftingIngredients(
+        gridRef.current,
+        output.recipe,
+      );
+      publishCraftingState();
       setStats((current) => ({
         ...current,
-        message: "Put down the held stack before taking this result.",
+        message: `Crafted ${output.amount} ${output.recipe.name}.`,
       }));
-      return;
-    }
-
-    cursorStackRef.current = {
-      itemId: output.itemId,
-      amount: (cursor?.amount ?? 0) + output.amount,
-    };
-    gridRef.current = consumeCraftingIngredients(gridRef.current, output.recipe);
-    publishCraftingState();
-    setStats((current) => ({
-      ...current,
-      message: `Crafted ${output.amount} ${output.recipe.name}.`,
-    }));
-  }, [activeCraftingGrid, publishCraftingState]);
+    },
+    [activeCraftingGrid, publishCraftingState],
+  );
 
   const inventoryCraftingOutput = getCraftingOutput(
     inventoryCraftingGrid,
@@ -814,11 +828,11 @@ export default function MinecraftInspiredWebGame() {
     placedWallsRef.current = new Map();
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
-    blockHotbarRef.current = [...DEFAULT_BLOCK_HOTBAR];
+    blockHotbarRef.current = createDefaultBlockHotbar();
     inventoryCraftingGridRef.current = Array(4).fill(null);
     workbenchCraftingGridRef.current = Array(9).fill(null);
     cursorStackRef.current = null;
-    settingsRef.current = { ...DEFAULT_GAME_SETTINGS };
+    settingsRef.current = createDefaultGameSettings();
     publishInventory();
     publishCraftingState();
     particlesRef.current = [];
@@ -833,10 +847,10 @@ export default function MinecraftInspiredWebGame() {
     rainRef.current = makeRainDrops();
     playerRef.current = createPlayer();
     cameraRef.current = { x: 0, y: 0 };
-    setBlockHotbar([...DEFAULT_BLOCK_HOTBAR]);
+    setBlockHotbar(createDefaultBlockHotbar());
     setSelected(0);
     setBuildMode("foreground");
-    setGameSettings({ ...DEFAULT_GAME_SETTINGS });
+    setGameSettings(createDefaultGameSettings());
     setStats(createStats("New world generated."));
     setWorldSeed((value) => value + 1);
   };
@@ -1368,9 +1382,7 @@ export default function MinecraftInspiredWebGame() {
           buildMode={buildMode}
           onToggleFullscreen={toggleFullscreen}
         >
-          {isHelpOpen && !isPaused && (
-            <HelpOverlay />
-          )}
+          {isHelpOpen && !isPaused && <HelpOverlay />}
           {isSettingsOpen && (
             <SettingsOverlay
               gameSettings={gameSettings}
