@@ -77,9 +77,15 @@ import {
   updateParticles,
 } from "./game/world";
 
-import { HOTBAR_SLOT_COUNT } from "./game/ui/hotbarLayout";
+import {
+  HOTBAR_SLOT_COUNT,
+  getHotbarSlotLabel,
+} from "./game/ui/hotbarLayout";
 
 const createDefaultBlockHotbar = () => Array(HOTBAR_SLOT_COUNT).fill(null);
+
+const createInventoryCraftingGrid = () => Array(4).fill(null);
+const createWorkbenchCraftingGrid = () => Array(9).fill(null);
 
 const createDefaultGameSettings = () => ({
   movementSpeed: 1,
@@ -112,8 +118,8 @@ export default function MinecraftInspiredWebGame() {
   const placedWallsRef = useRef(new Map());
   const anchoredLaddersRef = useRef(new Set());
   const inventoryRef = useRef(null);
-  const inventoryCraftingGridRef = useRef(Array(4).fill(null));
-  const workbenchCraftingGridRef = useRef(Array(9).fill(null));
+  const inventoryCraftingGridRef = useRef(createInventoryCraftingGrid());
+  const workbenchCraftingGridRef = useRef(createWorkbenchCraftingGrid());
   const cursorStackRef = useRef(null);
   const paintedSlotIdsRef = useRef(new Set());
   const isPaintingRef = useRef(false);
@@ -156,10 +162,10 @@ export default function MinecraftInspiredWebGame() {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [craftingPanel, setCraftingPanel] = useState("inventory");
   const [inventoryCraftingGrid, setInventoryCraftingGrid] = useState(() =>
-    Array(4).fill(null),
+    createInventoryCraftingGrid(),
   );
   const [workbenchCraftingGrid, setWorkbenchCraftingGrid] = useState(() =>
-    Array(9).fill(null),
+    createWorkbenchCraftingGrid(),
   );
   const [cursorStack, setCursorStack] = useState(null);
   const [carriedPlaceableIndex, setCarriedPlaceableIndex] = useState(null);
@@ -320,8 +326,8 @@ export default function MinecraftInspiredWebGame() {
         ...current,
         message:
           replacedItem && replacedIndex !== placeableIndex
-            ? `Swapped ${item.name} into hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}. Carrying ${replacedItem.name}.`
-            : `Assigned ${item.name} to hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+            ? `Swapped ${item.name} into hotbar slot ${getHotbarSlotLabel(slotIndex)}. Carrying ${replacedItem.name}.`
+            : `Assigned ${item.name} to hotbar slot ${getHotbarSlotLabel(slotIndex)}.`,
       }));
       return true;
     },
@@ -354,7 +360,7 @@ export default function MinecraftInspiredWebGame() {
     if (item) {
       setStats((current) => ({
         ...current,
-        message: `Removed ${item.name} from hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+        message: `Removed ${item.name} from hotbar slot ${getHotbarSlotLabel(slotIndex)}.`,
       }));
     }
   }, []);
@@ -372,7 +378,7 @@ export default function MinecraftInspiredWebGame() {
     setCarriedPlaceableIndex(null);
     setStats((current) => ({
       ...current,
-      message: `Swapped hotbar slots ${fromSlot === 9 ? "0" : fromSlot + 1} and ${toSlot === 9 ? "0" : toSlot + 1}.`,
+      message: `Swapped hotbar slots ${getHotbarSlotLabel(fromSlot)} and ${getHotbarSlotLabel(toSlot)}.`,
     }));
   }, []);
 
@@ -462,8 +468,8 @@ export default function MinecraftInspiredWebGame() {
       );
     }
 
-    inventoryCraftingGridRef.current = Array(4).fill(null);
-    workbenchCraftingGridRef.current = Array(9).fill(null);
+    inventoryCraftingGridRef.current = createInventoryCraftingGrid();
+    workbenchCraftingGridRef.current = createWorkbenchCraftingGrid();
     cursorStackRef.current = null;
     publishInventory();
     publishCraftingState();
@@ -831,8 +837,8 @@ export default function MinecraftInspiredWebGame() {
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
     blockHotbarRef.current = createDefaultBlockHotbar();
-    inventoryCraftingGridRef.current = Array(4).fill(null);
-    workbenchCraftingGridRef.current = Array(9).fill(null);
+    inventoryCraftingGridRef.current = createInventoryCraftingGrid();
+    workbenchCraftingGridRef.current = createWorkbenchCraftingGrid();
     cursorStackRef.current = null;
     settingsRef.current = createDefaultGameSettings();
     publishInventory();
