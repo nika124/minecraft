@@ -117,9 +117,17 @@ function naturalBackdropFor(world, x, y) {
   if (y >= SEA_LEVEL) return WALLS.deepStoneBack.id;
 
   const block = BLOCK_BY_ID[world[y][x]] ?? BLOCKS.air;
-  return block.id === BLOCKS.stone.id || block.id === BLOCKS.ore.id
+  return isStoneLayerBlock(block)
     ? WALLS.stoneBack.id
     : WALLS.dirtBack.id;
+}
+
+function isStoneLayerBlock(block) {
+  return (
+    block?.id === BLOCKS.stone.id ||
+    block?.id === BLOCKS.ore.id ||
+    block?.id === BLOCKS.coalOre.id
+  );
 }
 
 export function mineOrPlace({
@@ -438,11 +446,9 @@ export function mineOrPlace({
         currentBlock.id !== BLOCKS.torch.id);
 
     if (shouldRevealUnderground && walls[worldY][worldX] === WALLS.empty.id) {
-      walls[worldY][worldX] =
-        currentBlock.id === BLOCKS.stone.id ||
-        currentBlock.id === BLOCKS.ore.id
-          ? WALLS.stoneBack.id
-          : WALLS.dirtBack.id;
+      walls[worldY][worldX] = isStoneLayerBlock(currentBlock)
+        ? WALLS.stoneBack.id
+        : WALLS.dirtBack.id;
     }
     emitParticles(
       particlesRef.current,
@@ -459,10 +465,7 @@ export function mineOrPlace({
           : `Mined ${currentBlock.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
     }));
     resetMiningState(miningRef);
-    nextMineCooldown =
-      currentBlock.id === BLOCKS.stone.id || currentBlock.id === BLOCKS.ore.id
-        ? 0.08
-        : 0.04;
+    nextMineCooldown = isStoneLayerBlock(currentBlock) ? 0.08 : 0.04;
   } else if (mouse.button === 0) {
     resetMiningState(miningRef);
   }

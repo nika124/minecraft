@@ -8,6 +8,7 @@ const BLOCK_DROPS = {
   [BLOCKS.wood.id]: [{ itemId: "wood", amount: 1 }],
   [BLOCKS.sand.id]: [{ itemId: "sand", amount: 1 }],
   [BLOCKS.ore.id]: [{ itemId: "rawOre", amount: 1 }],
+  [BLOCKS.coalOre.id]: [{ itemId: "coal", amount: 1 }],
   [BLOCKS.torch.id]: [{ itemId: "torch", amount: 1 }],
   [BLOCKS.brick.id]: [{ itemId: "brick", amount: 1 }],
   [BLOCKS.glass.id]: [{ itemId: "glass", amount: 1 }],

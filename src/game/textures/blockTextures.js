@@ -199,6 +199,20 @@ function drawOre(ctx) {
   ctx.fillRect(21, 16, 2, 2);
 }
 
+function drawCoalOre(ctx) {
+  drawStone(ctx, "#646972");
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(6, 7, 7, 6);
+  ctx.fillRect(19, 13, 7, 7);
+  ctx.fillRect(11, 22, 5, 5);
+  ctx.fillStyle = "#0b1120";
+  ctx.fillRect(8, 9, 4, 4);
+  ctx.fillRect(21, 15, 4, 4);
+  ctx.fillStyle = "rgba(255,255,255,.2)";
+  ctx.fillRect(7, 8, 2, 1);
+  ctx.fillRect(20, 14, 2, 1);
+}
+
 function drawCoal(ctx) {
   fillBase(ctx, "#1f2937");
   speckles(ctx, ["#111827", "#293241", "#374151", "#0b1120"], 60, 170, 2, 4);
@@ -311,6 +325,7 @@ const BLOCK_DRAWERS = {
   [BLOCKS.brick.id]: drawBrick,
   [BLOCKS.glass.id]: drawGlass,
   [BLOCKS.ore.id]: drawOre,
+  [BLOCKS.coalOre.id]: drawCoalOre,
   [BLOCKS.coal.id]: drawCoal,
   [BLOCKS.torch.id]: drawTorch,
   [BLOCKS.water.id]: drawWater,

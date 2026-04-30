@@ -83,6 +83,16 @@ export const BLOCKS = {
     miningType: "pickaxe",
     requiresTool: "pickaxe",
   },
+  coalOre: {
+    id: 16,
+    name: "Coal Ore",
+    solid: true,
+    color: "#5d626b",
+    accent: "#111827",
+    hardness: 1.6,
+    miningType: "pickaxe",
+    requiresTool: "pickaxe",
+  },
   torch: {
     id: 10,
     name: "Torch",
