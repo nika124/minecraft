@@ -23,7 +23,7 @@ function dropTexture(item) {
   if (!item) return null;
   if (item.blockId !== undefined) return getBlockTexture(BLOCK_BY_ID[item.blockId]);
   if (item.wallId !== undefined) return getWallTexture(WALL_BY_ID[item.wallId]);
-  if (item.category === "tool") {
+  if (item.category === "Tools") {
     const tool = FOREGROUND_ITEMS.find((foregroundItem) => foregroundItem.id === item.id);
     return tool ? getItemTexture(tool) : null;
   }

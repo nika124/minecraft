@@ -1,163 +1,231 @@
 import {
   BLOCKS,
+  BLOCK_BY_ID,
   FOREGROUND_ITEMS,
   WALL_BY_ID,
   WALLS,
-  WALL_PLACEABLE,
 } from "./constants";
+
+const PLACEMENT_DEFAULTS = {
+  canPlaceForeground: false,
+  canPlaceBackground: false,
+  forcedPlacementLayer: null,
+  foregroundBlockId: null,
+  backgroundWallId: null,
+  texture: null,
+  backgroundTexture: null,
+  backgroundTint: "rgba(15, 23, 42, 0.38)",
+  dimAmount: 0.48,
+};
 
 export const ITEMS = {
   grass: {
     id: "grass",
     name: "Grass",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.grass.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    foregroundBlockId: BLOCKS.grass.id,
   },
   wood: {
     id: "wood",
     name: "Wood",
-    category: "material",
+    category: "Blocks",
     blockId: BLOCKS.wood.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.wood.id,
+    backgroundWallId: WALLS.woodWall.id,
   },
   planks: {
     id: "planks",
     name: "Planks",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.planks.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.planks.id,
+    backgroundWallId: WALLS.woodWall.id,
   },
   sticks: {
     id: "sticks",
     name: "Stick",
-    category: "tool",
+    category: "Tools",
     color: "#8b552c",
   },
   dirt: {
     id: "dirt",
     name: "Dirt",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.dirt.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.dirt.id,
+    backgroundWallId: WALLS.dirtBack.id,
   },
   stone: {
     id: "stone",
     name: "Stone",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.stone.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.stone.id,
+    backgroundWallId: WALLS.stoneWall.id,
   },
   sand: {
     id: "sand",
     name: "Sand",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.sand.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.sand.id,
+    backgroundWallId: WALLS.dirtBack.id,
   },
   rawOre: {
     id: "rawOre",
     name: "Raw Ore",
-    category: "material",
+    category: "Materials",
     blockId: BLOCKS.ore.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    foregroundBlockId: BLOCKS.ore.id,
   },
   coal: {
     id: "coal",
     name: "Coal",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.coal.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    foregroundBlockId: BLOCKS.coal.id,
   },
   torch: {
     id: "torch",
     name: "Torch",
-    category: "block",
+    category: "Utility",
     blockId: BLOCKS.torch.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    forcedPlacementLayer: "foreground",
+    foregroundBlockId: BLOCKS.torch.id,
   },
   glass: {
     id: "glass",
     name: "Glass",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.glass.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.glass.id,
+    backgroundWallId: WALLS.glassWall.id,
   },
   brick: {
     id: "brick",
     name: "Brick",
-    category: "block",
+    category: "Blocks",
     blockId: BLOCKS.brick.id,
+    canPlaceForeground: true,
+    canPlaceBackground: true,
+    foregroundBlockId: BLOCKS.brick.id,
+    backgroundWallId: WALLS.brickWall.id,
   },
   water: {
     id: "water",
     name: "Water",
-    category: "liquid",
+    category: "Utility",
     blockId: BLOCKS.water.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    foregroundBlockId: BLOCKS.water.id,
   },
   woodWall: {
     id: "woodWall",
     name: "Wood Wall",
-    category: "wall",
+    category: "Materials",
     wallId: WALLS.woodWall.id,
   },
   stoneWall: {
     id: "stoneWall",
     name: "Stone Wall",
-    category: "wall",
+    category: "Materials",
     wallId: WALLS.stoneWall.id,
   },
   brickWall: {
     id: "brickWall",
     name: "Brick Wall",
-    category: "wall",
+    category: "Materials",
     wallId: WALLS.brickWall.id,
   },
   glassWall: {
     id: "glassWall",
     name: "Glass Wall",
-    category: "wall",
+    category: "Materials",
     wallId: WALLS.glassWall.id,
   },
   ladder: {
     id: "ladder",
     name: "Ladder",
-    category: "wall",
+    category: "Utility",
     wallId: WALLS.ladder.id,
+    canPlaceForeground: false,
+    canPlaceBackground: true,
+    forcedPlacementLayer: "background",
+    backgroundWallId: WALLS.ladder.id,
   },
   woodenPickaxe: {
     id: "woodenPickaxe",
     name: "Wooden Pickaxe",
-    category: "tool",
+    category: "Tools",
   },
   woodenAxe: {
     id: "woodenAxe",
     name: "Wooden Axe",
-    category: "tool",
+    category: "Tools",
   },
   woodenShovel: {
     id: "woodenShovel",
     name: "Wooden Shovel",
-    category: "tool",
+    category: "Tools",
   },
   stonePickaxe: {
     id: "stonePickaxe",
     name: "Stone Pickaxe",
-    category: "tool",
+    category: "Tools",
   },
   stoneAxe: {
     id: "stoneAxe",
     name: "Stone Axe",
-    category: "tool",
+    category: "Tools",
   },
   stoneShovel: {
     id: "stoneShovel",
     name: "Stone Shovel",
-    category: "tool",
+    category: "Tools",
   },
   workbench: {
     id: "workbench",
     name: "Workbench",
-    category: "block",
+    category: "Utility",
     blockId: BLOCKS.workbench.id,
+    canPlaceForeground: true,
+    canPlaceBackground: false,
+    foregroundBlockId: BLOCKS.workbench.id,
   },
   sapling: {
     id: "sapling",
     name: "Sapling",
-    category: "material",
+    category: "Materials",
     color: "#2f8f45",
   },
 };
+
+for (const item of Object.values(ITEMS)) {
+  Object.assign(item, { ...PLACEMENT_DEFAULTS, ...item });
+  item.texture ??= item.foregroundBlockId ?? item.blockId ?? null;
+}
 
 const LEGACY_WALL_ITEM_IDS = new Set([
   "woodWall",
@@ -169,17 +237,6 @@ const LEGACY_WALL_ITEM_IDS = new Set([
 export const ITEM_LIST = Object.values(ITEMS).filter(
   (item) => !LEGACY_WALL_ITEM_IDS.has(item.id),
 );
-
-const BACKGROUND_WALL_BY_BLOCK_ID = new Map([
-  [BLOCKS.grass.id, WALLS.dirtBack.id],
-  [BLOCKS.dirt.id, WALLS.dirtBack.id],
-  [BLOCKS.sand.id, WALLS.dirtBack.id],
-  [BLOCKS.stone.id, WALLS.stoneWall.id],
-  [BLOCKS.wood.id, WALLS.woodWall.id],
-  [BLOCKS.planks.id, WALLS.woodWall.id],
-  [BLOCKS.brick.id, WALLS.brickWall.id],
-  [BLOCKS.glass.id, WALLS.glassWall.id],
-]);
 
 const BACKGROUND_ITEM_BY_WALL_ID = new Map([
   [WALLS.woodWall.id, "wood"],
@@ -210,12 +267,6 @@ const FOREGROUND_INDEX_BY_ITEM_ID = new Map(
   FOREGROUND_ITEMS.map((item, index) => [getForegroundItemId(item), index]),
 );
 
-const WALL_INDEX_BY_ITEM_ID = new Map(
-  WALL_PLACEABLE.map((wall, index) => [getWallItemId(wall), index]).filter(
-    ([itemId]) => itemId !== null,
-  ),
-);
-
 export function getBlockItemId(block) {
   return BLOCK_ITEM_BY_ID.get(block?.id) ?? null;
 }
@@ -232,27 +283,23 @@ export function getForegroundItemId(item) {
   return getBlockItemId(item);
 }
 
+export function getInventoryItemForPlaceable(item) {
+  const itemId =
+    typeof item === "string" ? item : getForegroundItemId(item) ?? item?.id;
+  return ITEMS[itemId] ?? null;
+}
+
 export function getForegroundIndexForItem(itemId) {
   return FOREGROUND_INDEX_BY_ITEM_ID.get(itemId) ?? null;
 }
 
 export function getWallIndexForItem(itemId) {
-  return WALL_INDEX_BY_ITEM_ID.get(itemId) ?? null;
+  void itemId;
+  return null;
 }
 
 export function getItemName(itemId) {
   return ITEMS[itemId]?.name ?? itemId;
-}
-
-export function getBackgroundWallForBlock(blockOrItem) {
-  const blockId =
-    typeof blockOrItem === "string"
-      ? ITEMS[blockOrItem]?.blockId
-      : typeof blockOrItem === "number"
-        ? blockOrItem
-        : blockOrItem?.blockId ?? blockOrItem?.id;
-  const wallId = BACKGROUND_WALL_BY_BLOCK_ID.get(blockId);
-  return WALL_BY_ID[wallId] ?? null;
 }
 
 export function getItemForRemovedBackgroundWall(wallOrId) {
@@ -260,13 +307,45 @@ export function getItemForRemovedBackgroundWall(wallOrId) {
   return BACKGROUND_ITEM_BY_WALL_ID.get(wallId) ?? null;
 }
 
+export function getPlacementLayerForItem(item, buildMode) {
+  const inventoryItem = getInventoryItemForPlaceable(item);
+  return inventoryItem?.forcedPlacementLayer ?? buildMode;
+}
+
+export function canItemPlaceInLayer(item, layer) {
+  const inventoryItem = getInventoryItemForPlaceable(item);
+  if (!inventoryItem) return false;
+  return layer === "background"
+    ? inventoryItem.canPlaceBackground
+    : inventoryItem.canPlaceForeground;
+}
+
+export function getForegroundBlockForItem(item) {
+  const inventoryItem = getInventoryItemForPlaceable(item);
+  return BLOCK_BY_ID[inventoryItem?.foregroundBlockId] ?? null;
+}
+
+export function getBackgroundWallForItem(item) {
+  const inventoryItem = getInventoryItemForPlaceable(item);
+  return WALL_BY_ID[inventoryItem?.backgroundWallId] ?? null;
+}
+
+export function getBackgroundWallForBlock(blockOrItem) {
+  return getBackgroundWallForItem(blockOrItem);
+}
+
+export function isForcedPlacementItem(item) {
+  return Boolean(getInventoryItemForPlaceable(item)?.forcedPlacementLayer);
+}
+
 export function canPlaceAsForeground(item) {
-  if (!item || item.kind === "tool") return false;
-  return item.blockId !== undefined || getBlockItemId(item) !== null;
+  return canItemPlaceInLayer(item, "foreground");
 }
 
 export function canPlaceAsBackground(item) {
-  if (!item || item.category === "tool" || item.kind === "tool") return false;
-  if (item.id === "torch" || item.id === "ladder") return true;
-  return Boolean(getBackgroundWallForBlock(item));
+  return canItemPlaceInLayer(item, "background");
+}
+
+export function getInventoryCategory(item) {
+  return getInventoryItemForPlaceable(item)?.category ?? "Materials";
 }

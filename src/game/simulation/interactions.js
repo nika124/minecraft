@@ -12,10 +12,13 @@ import {
 import { getBlockDrops, getWallDrops, formatDrops } from "../drops";
 import { consumeInventoryItem, getItemCount } from "../inventory";
 import {
-  canPlaceAsForeground,
-  getBackgroundWallForBlock,
+  canItemPlaceInLayer,
+  getBackgroundWallForItem,
+  getForegroundBlockForItem,
   getForegroundItemId,
+  getInventoryItemForPlaceable,
   getItemForRemovedBackgroundWall,
+  getPlacementLayerForItem,
 } from "../items";
 import { updateSkyCoverageColumn } from "../rendering";
 import { emitParticles } from "../world";
@@ -147,8 +150,12 @@ function isLadderItem(itemId) {
 }
 
 function getPlayerPlacedWallDrops(placedWallsRef, wall, blockKey) {
-  if (!placedWallsRef.current.delete(blockKey)) return [];
-  const itemId = getItemForRemovedBackgroundWall(wall);
+  const sourceBlockId = placedWallsRef.current.get(blockKey);
+  if (sourceBlockId === undefined) return [];
+  placedWallsRef.current.delete(blockKey);
+  const itemId =
+    getForegroundItemId(BLOCK_BY_ID[sourceBlockId]) ??
+    getItemForRemovedBackgroundWall(wall);
   return itemId ? [{ itemId, amount: 1 }] : [];
 }
 
@@ -301,202 +308,170 @@ export function mineOrPlace({
   const ladders = laddersRef.current;
   const currentBlock = BLOCK_BY_ID[world[worldY][worldX]] ?? BLOCKS.air;
   const blockKey = `${worldX},${worldY}`;
+  const placeItem = selectedHotbarItem(blockHotbarRef, selectedRef);
+  const placeItemId = getForegroundItemId(placeItem);
+  const placeInventoryItem = getInventoryItemForPlaceable(placeItem);
+  const placementLayer =
+    mouse.button === 2
+      ? getPlacementLayerForItem(placeItem, buildModeRef.current)
+      : buildModeRef.current;
 
-  if (buildModeRef.current === "background") {
+  if (buildModeRef.current === "background" && mouse.button === 0) {
     resetMiningState(miningRef);
-    const placeItem = selectedHotbarItem(blockHotbarRef, selectedRef);
-    const placeItemId = getForegroundItemId(placeItem);
 
-    if (mouse.button === 0) {
-      if (isLadderItem(placeItemId) && ladders[worldY][worldX]) {
-        ladders[worldY][worldX] = false;
-        anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
-        const drops = getWallDrops(WALLS.ladder);
-        spawnDroppedItems(
-          droppedItemsRef,
-          drops,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-        );
-        emitParticles(
-          particlesRef.current,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-          WALLS.ladder.color,
-          5,
-        );
-        setStats((current) => ({
-          ...current,
-          message: `Removed Ladder${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
-        }));
-      } else if (walls[worldY][worldX] !== WALLS.empty.id) {
-        const removedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
-        const replacementWall = naturalBackdropFor(world, worldX, worldY);
-        walls[worldY][worldX] =
-          worldY >= SEA_LEVEL ? replacementWall : WALLS.empty.id;
-        const drops = getPlayerPlacedWallDrops(
-          placedWallsRef,
-          removedWall,
-          blockKey,
-        );
-        const torchesRemoved = removeUnsupportedTorches({
-          world,
-          walls,
-          x: worldX,
-          y: worldY,
-          placedBlocksRef,
-          particlesRef,
-          droppedItemsRef,
-        });
-        const laddersRemoved = removeUnsupportedLadders({
-          walls,
-          ladders,
-          anchoredLaddersRef,
-          particlesRef,
-          droppedItemsRef,
-        });
-        spawnDroppedItems(
-          droppedItemsRef,
-          drops,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-        );
-        emitParticles(
-          particlesRef.current,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-          "rgba(220,220,220,.8)",
-          5,
-        );
-        setStats((current) => ({
-          ...current,
-          message:
-            laddersRemoved > 0
-              ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${laddersRemoved} ladder${laddersRemoved > 1 ? "s" : ""} fell off.`
-              : torchesRemoved > 0
-                ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
-                : `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
-        }));
-      }
-      nextMineCooldown = 0.1;
+    if (isLadderItem(placeItemId) && ladders[worldY][worldX]) {
+      ladders[worldY][worldX] = false;
+      anchoredLaddersRef.current.delete(`${worldX},${worldY}`);
+      const drops = getWallDrops(WALLS.ladder);
+      spawnDroppedItems(
+        droppedItemsRef,
+        drops,
+        worldX * TILE + TILE / 2,
+        worldY * TILE + TILE / 2,
+      );
+      emitParticles(
+        particlesRef.current,
+        worldX * TILE + TILE / 2,
+        worldY * TILE + TILE / 2,
+        WALLS.ladder.color,
+        5,
+      );
+      setStats((current) => ({
+        ...current,
+        message: `Removed Ladder${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
+      }));
+    } else if (walls[worldY][worldX] !== WALLS.empty.id) {
+      const removedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
+      const replacementWall = naturalBackdropFor(world, worldX, worldY);
+      walls[worldY][worldX] =
+        worldY >= SEA_LEVEL ? replacementWall : WALLS.empty.id;
+      const drops = getPlayerPlacedWallDrops(
+        placedWallsRef,
+        removedWall,
+        blockKey,
+      );
+      const torchesRemoved = removeUnsupportedTorches({
+        world,
+        walls,
+        x: worldX,
+        y: worldY,
+        placedBlocksRef,
+        particlesRef,
+        droppedItemsRef,
+      });
+      const laddersRemoved = removeUnsupportedLadders({
+        walls,
+        ladders,
+        anchoredLaddersRef,
+        particlesRef,
+        droppedItemsRef,
+      });
+      spawnDroppedItems(
+        droppedItemsRef,
+        drops,
+        worldX * TILE + TILE / 2,
+        worldY * TILE + TILE / 2,
+      );
+      emitParticles(
+        particlesRef.current,
+        worldX * TILE + TILE / 2,
+        worldY * TILE + TILE / 2,
+        "rgba(220,220,220,.8)",
+        5,
+      );
+      setStats((current) => ({
+        ...current,
+        message:
+          laddersRemoved > 0
+            ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${laddersRemoved} ladder${laddersRemoved > 1 ? "s" : ""} fell off.`
+            : torchesRemoved > 0
+              ? `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}. ${torchesRemoved} torch${torchesRemoved > 1 ? "es" : ""} fell off.`
+              : `Removed ${removedWall.name}${drops.length ? ` (+${formatDrops(drops)})` : ""}.`,
+      }));
     }
 
-    if (mouse.button === 2) {
-      if (!placeItem) {
-        setStats((current) => ({
-          ...current,
-          message: "That hotbar slot is empty.",
-        }));
-        return 0.14;
-      }
+    nextMineCooldown = 0.1;
+    return nextMineCooldown;
+  }
 
-      if (placeItem.kind === "tool") {
+  if (mouse.button === 2 && placementLayer === "background") {
+    resetMiningState(miningRef);
+    if (!placeItem) {
+      setStats((current) => ({
+        ...current,
+        message: "That hotbar slot is empty.",
+      }));
+      return 0.14;
+    }
+
+    if (placeItem.kind === "tool") {
+      setStats((current) => ({
+        ...current,
+        message:
+          placeItem.id === "sticks"
+            ? "Stick cannot be placed."
+            : `${placeItem.name}s are for mining, not placing.`,
+      }));
+      return 0.14;
+    }
+
+    if (!canItemPlaceInLayer(placeItem, "background")) {
+      setStats((current) => ({
+        ...current,
+        message: `${placeItem.name} cannot be placed in the background layer.`,
+      }));
+      return 0.12;
+    }
+
+    if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
+      setStats((current) => ({
+        ...current,
+        message: `You do not have ${placeItem.name}.`,
+      }));
+      return 0.12;
+    }
+
+    if (isTorchItem(placeItemId)) {
+      if (
+        placeTorchBlock({
+          world,
+          walls,
+          worldX,
+          worldY,
+          player,
+          inventoryRef,
+          waterLevelsRef,
+          waterSourcesRef,
+          placedBlocksRef,
+          particlesRef,
+          skyCoverageRef,
+          onInventoryChange,
+          setStats,
+          stepWaterFlow,
+        })
+      ) {
+        nextMineCooldown = 0.12;
+      } else {
+        nextMineCooldown = 0.08;
+      }
+      return nextMineCooldown;
+    }
+
+    if (isLadderItem(placeItemId)) {
+      if (!ladderHasAnchor(walls, ladders, worldX, worldY)) {
         setStats((current) => ({
           ...current,
           message:
-            placeItem.id === "sticks"
-              ? "Stick cannot be placed."
-              : `${placeItem.name}s are for mining, not placing.`,
-        }));
-        return 0.14;
-      }
-
-      if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
-        setStats((current) => ({
-          ...current,
-          message: `You do not have ${placeItem.name}.`,
-        }));
-        return 0.12;
-      }
-
-      if (isTorchItem(placeItemId)) {
-        if (
-          placeTorchBlock({
-            world,
-            walls,
-            worldX,
-            worldY,
-            player,
-            inventoryRef,
-            waterLevelsRef,
-            waterSourcesRef,
-            placedBlocksRef,
-            particlesRef,
-            skyCoverageRef,
-            onInventoryChange,
-            setStats,
-            stepWaterFlow,
-          })
-        ) {
-          nextMineCooldown = 0.12;
-        } else {
-          nextMineCooldown = 0.08;
-        }
-        return nextMineCooldown;
-      }
-
-      if (isLadderItem(placeItemId)) {
-        if (!ladderHasAnchor(walls, ladders, worldX, worldY)) {
-          setStats((current) => ({
-            ...current,
-            message:
-              "Ladders need a background wall, or another ladder connected vertically to one.",
-          }));
-          return 0.08;
-        }
-        if (ladders[worldY][worldX]) {
-          return 0.08;
-        }
-        ladders[worldY][worldX] = true;
-        if (walls[worldY][worldX] !== WALLS.empty.id) {
-          anchoredLaddersRef.current.add(`${worldX},${worldY}`);
-        }
-        consumeInventoryItem(inventoryRef, placeItemId, 1);
-        onInventoryChange?.();
-        emitParticles(
-          particlesRef.current,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-          WALLS.ladder.color,
-          5,
-        );
-        setStats((current) => ({
-          ...current,
-          wallsBuilt: current.wallsBuilt + 1,
-          message: "Placed Ladder.",
+            "Ladders need a background wall, or another ladder connected vertically to one.",
         }));
         return 0.08;
       }
-
-      const wall = getBackgroundWallForBlock(placeItem);
-      if (!wall) {
-        setStats((current) => ({
-          ...current,
-          message: `${placeItem.name} cannot be placed as a background wall.`,
-        }));
-        return 0.12;
-      }
-
-      if (walls[worldY][worldX] !== wall.id) {
-        const replacedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
-        const replacedDrops = getPlayerPlacedWallDrops(
-          placedWallsRef,
-          replacedWall,
-          blockKey,
-        );
-        spawnDroppedItems(
-          droppedItemsRef,
-          replacedDrops,
-          worldX * TILE + TILE / 2,
-          worldY * TILE + TILE / 2,
-        );
-        walls[worldY][worldX] = wall.id;
-        placedWallsRef.current.add(blockKey);
-        if (ladders[worldY][worldX]) {
-          anchoredLaddersRef.current.add(`${worldX},${worldY}`);
-        }
-      } else {
+      if (ladders[worldY][worldX]) {
         return 0.08;
+      }
+      ladders[worldY][worldX] = true;
+      if (walls[worldY][worldX] !== WALLS.empty.id) {
+        anchoredLaddersRef.current.add(`${worldX},${worldY}`);
       }
       consumeInventoryItem(inventoryRef, placeItemId, 1);
       onInventoryChange?.();
@@ -504,16 +479,65 @@ export function mineOrPlace({
         particlesRef.current,
         worldX * TILE + TILE / 2,
         worldY * TILE + TILE / 2,
-        wall.color,
+        WALLS.ladder.color,
         5,
       );
       setStats((current) => ({
         ...current,
         wallsBuilt: current.wallsBuilt + 1,
-        message: `Placed ${wall.name} from ${placeItem.name}. Background walls do not block movement.`,
+        message: "Placed Ladder.",
       }));
-      nextMineCooldown = 0.08;
+      return 0.08;
     }
+
+    const wall = getBackgroundWallForItem(placeItem);
+    if (!wall) {
+      setStats((current) => ({
+        ...current,
+        message: `${placeItem.name} cannot be placed as a background wall.`,
+      }));
+      return 0.12;
+    }
+
+    if (walls[worldY][worldX] !== wall.id) {
+      const replacedWall = WALL_BY_ID[walls[worldY][worldX]] ?? WALLS.empty;
+      const replacedDrops = getPlayerPlacedWallDrops(
+        placedWallsRef,
+        replacedWall,
+        blockKey,
+      );
+      spawnDroppedItems(
+        droppedItemsRef,
+        replacedDrops,
+        worldX * TILE + TILE / 2,
+        worldY * TILE + TILE / 2,
+      );
+      walls[worldY][worldX] = wall.id;
+      placedWallsRef.current.set(
+        blockKey,
+        placeInventoryItem.foregroundBlockId ?? placeInventoryItem.blockId,
+      );
+      if (ladders[worldY][worldX]) {
+        anchoredLaddersRef.current.add(`${worldX},${worldY}`);
+      }
+    } else {
+      return 0.08;
+    }
+    consumeInventoryItem(inventoryRef, placeItemId, 1);
+    onInventoryChange?.();
+    emitParticles(
+      particlesRef.current,
+      worldX * TILE + TILE / 2,
+      worldY * TILE + TILE / 2,
+      wall.color,
+      5,
+    );
+    setStats((current) => ({
+      ...current,
+      wallsBuilt: current.wallsBuilt + 1,
+      message: `Placed ${wall.name} from ${placeItem.name}. Background walls do not block movement.`,
+    }));
+    nextMineCooldown = 0.08;
 
     return nextMineCooldown;
   }
@@ -651,9 +675,7 @@ export function mineOrPlace({
 
   if (mouse.button === 2) {
     resetMiningState(miningRef);
-    const placeBlock =
-      FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
-    if (!placeBlock) {
+    if (!placeItem) {
       setStats((current) => ({
         ...current,
         message: "That hotbar slot is empty.",
@@ -661,36 +683,42 @@ export function mineOrPlace({
       return 0.14;
     }
 
-    if (placeBlock.kind === "tool") {
+    if (placeItem.kind === "tool") {
       setStats((current) => ({
         ...current,
         message:
-          placeBlock.id === "sticks"
+          placeItem.id === "sticks"
             ? "Stick cannot be placed."
-            : `${placeBlock.name}s are for mining, not placing.`,
+            : `${placeItem.name}s are for mining, not placing.`,
       }));
       return 0.14;
     }
 
-    if (!canPlaceAsForeground(placeBlock)) {
+    if (!canItemPlaceInLayer(placeItem, "foreground")) {
       setStats((current) => ({
         ...current,
-        message:
-          placeBlock.id === "ladder"
-            ? "Ladders can only be placed in background mode."
-            : `${placeBlock.name} cannot be placed as a foreground block.`,
+        message: `${placeItem.name} cannot be placed in the foreground layer.`,
       }));
       return 0.14;
     }
 
-    const placeItemId = getForegroundItemId(placeBlock);
     if (!placeItemId || getItemCount(inventoryRef, placeItemId) <= 0) {
       setStats((current) => ({
         ...current,
-        message: `You do not have ${placeBlock.name}.`,
+        message: `You do not have ${placeItem.name}.`,
       }));
       return 0.14;
     }
+
+    const placeBlock = getForegroundBlockForItem(placeItem);
+    if (!placeBlock) {
+      setStats((current) => ({
+        ...current,
+        message: `${placeItem.name} has no foreground placement.`,
+      }));
+      return 0.14;
+    }
+
     const px = worldX * TILE;
     const py = worldY * TILE;
     const touchingPlayer = !(

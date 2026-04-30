@@ -1,9 +1,45 @@
-import { BLOCKS, TILE, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "./constants";
+import {
+  BLOCKS,
+  BLOCK_BY_ID,
+  TILE,
+  VIEW_H,
+  VIEW_W,
+  WORLD_H,
+  WORLD_W,
+} from "./constants";
 import { getBlockTexture, getItemTexture, getWallTexture } from "./textures";
 import { clamp } from "./world";
 
-export function drawWall(ctx, wall, x, y, size) {
+export function renderBackgroundBlockTexture(
+  ctx,
+  blockOrId,
+  x,
+  y,
+  size,
+  { dimAmount = 0.48, backgroundTint = "rgba(15,23,42,.38)" } = {},
+) {
+  const block =
+    typeof blockOrId === "number" ? BLOCK_BY_ID[blockOrId] : blockOrId;
+  if (!block || block.id === BLOCKS.air.id) return false;
+
+  ctx.save();
+  ctx.globalAlpha = clamp(1 - dimAmount * 0.45, 0.45, 0.82);
+  ctx.drawImage(getBlockTexture(block), x, y, size, size);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = backgroundTint;
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = "rgba(255,255,255,.08)";
+  ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+  ctx.restore();
+  return true;
+}
+
+export function drawWall(ctx, wall, x, y, size, time = 0, sourceBlockId = null) {
+  void time;
   if (!wall || wall.id === 0) return;
+  if (sourceBlockId && renderBackgroundBlockTexture(ctx, sourceBlockId, x, y, size)) {
+    return;
+  }
   ctx.drawImage(getWallTexture(wall), x, y, size, size);
 }
 

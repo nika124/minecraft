@@ -9,10 +9,10 @@ import { getItemCount } from "../game/inventory";
 import {
   ITEM_LIST,
   ITEMS,
-  canPlaceAsBackground,
   getForegroundIndexForItem,
   getForegroundItemId,
   getBackgroundWallForBlock,
+  getInventoryCategory,
 } from "../game/items";
 import {
   getBlockTexture,
@@ -50,7 +50,7 @@ function renderInventorySwatch(item) {
     return renderTextureSwatch(WALL_BY_ID[item.wallId], "wall");
   }
 
-  if (item.category === "tool") {
+  if (item.category === "Tools") {
     const tool = FOREGROUND_ITEMS.find((foregroundItem) => foregroundItem.id === item.id);
     if (tool) return renderTextureSwatch(tool, "block");
   }
@@ -67,7 +67,6 @@ function renderInventorySwatch(item) {
 }
 
 export default function InventoryPanel({
-  buildMode,
   selected,
   blockHotbar,
   inventory,
@@ -88,8 +87,7 @@ export default function InventoryPanel({
   onAssignInventoryBlock,
   onClearHotbarSlot,
   onSwapHotbarSlots,
-  onSetForegroundMode,
-  onSetBackgroundMode,
+  onReturnCarriedItemToInventory,
   carriedPlaceableIndex,
   panelTitle = "Inventory",
   panelSubtitle = "Pick a stack for crafting, or drag placeable items into the hotbar.",
@@ -115,8 +113,22 @@ export default function InventoryPanel({
 
   const handleInventoryDrop = (event) => {
     event.preventDefault();
+    event.stopPropagation();
     const [type, value] = readDragData(event).split(":");
     if (type === "hotbar") onClearHotbarSlot(Number(value));
+    if (type === "inventory") onReturnCarriedItemToInventory?.();
+  };
+
+  const handleInventoryListMouseDown = (event) => {
+    if (
+      event.button !== 0 ||
+      (carriedPlaceableIndex === null && !cursorStack?.amount)
+    ) {
+      return;
+    }
+    if (event.target.closest("button")) return;
+    event.preventDefault();
+    onReturnCarriedItemToInventory?.();
   };
 
   const handleHotbarDrop = (event, slotIndex) => {
@@ -226,16 +238,13 @@ export default function InventoryPanel({
           overlayTarget,
         )
       : null;
-  const visibleInventoryItems =
-    buildMode === "background" ? ITEM_LIST.filter(canPlaceAsBackground) : ITEM_LIST;
-  const inventoryHeading =
-    buildMode === "background"
-      ? "Background placement items"
-      : "Foreground blocks and items";
-  const inventoryHint =
-    buildMode === "background"
-      ? "Assign normal blocks, torches, or ladders to the hotbar; build mode chooses the layer."
-      : "Left click carries a stack. Drag or carry to the hotbar to assign.";
+  const categoryOrder = ["Blocks", "Tools", "Utility", "Materials"];
+  const inventoryGroups = categoryOrder
+    .map((category) => ({
+      category,
+      items: ITEM_LIST.filter((item) => getInventoryCategory(item) === category),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div
@@ -264,34 +273,33 @@ export default function InventoryPanel({
         </div>
       )}
 
-      <div className="mode-tabs">
-        <span className="mode-label">Category</span>
-        <button
-          onClick={onSetForegroundMode}
-          className={`mode-tab ${buildMode === "foreground" ? "is-active" : ""}`}
-        >
-          Foreground
-        </button>
-        <button
-          onClick={onSetBackgroundMode}
-          className={`mode-tab ${buildMode === "background" ? "is-active is-cyan" : ""}`}
-        >
-          Background
-        </button>
-      </div>
-
       <div className="inventory-workspace">
-        <div className="inventory-main">
-          <div className="inventory-section-heading">
-            <span>{inventoryHeading}</span>
-            <small>{inventoryHint}</small>
-          </div>
-          <div
-            className="palette-grid inventory-items-grid"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleInventoryDrop}
-          >
-            {visibleInventoryItems.map((item) => {
+        <div
+          className="inventory-main"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleInventoryDrop}
+          onMouseDown={handleInventoryListMouseDown}
+        >
+          {inventoryGroups.map((group) => (
+            <div key={group.category}>
+              <div className="inventory-section-heading">
+                <span>{group.category}</span>
+                <small>
+                  {group.category === "Blocks"
+                    ? "Build mode chooses foreground or background when the item supports both."
+                    : group.category === "Tools"
+                      ? "Tools mine faster and do not place blocks."
+                      : group.category === "Utility"
+                        ? "Special placeables keep their own support rules."
+                        : "Crafting ingredients and drops."}
+                </small>
+              </div>
+              <div
+                className="palette-grid inventory-items-grid"
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={handleInventoryDrop}
+              >
+                {group.items.map((item) => {
               const count = getItemCount(inventory, item.id);
               const foregroundIndex = getForegroundIndexForItem(item.id);
               const isAssignable = foregroundIndex !== null;
@@ -304,7 +312,7 @@ export default function InventoryPanel({
                 <button
                   type="button"
                   key={item.id}
-                  draggable={false}
+                  draggable={isAssignable && count > 0}
                   disabled={count <= 0 && !cursorStack}
                   onMouseDown={(event) => {
                     updateCursorPosition(event);
@@ -338,11 +346,11 @@ export default function InventoryPanel({
                     <small>
                       {equippedSlot !== -1
                         ? `Equipped in ${equippedSlot === 9 ? "0" : equippedSlot + 1}`
-                        : buildMode === "background" && backgroundWall
-                          ? `Places ${backgroundWall.name}`
+                        : backgroundWall
+                          ? `Foreground + background`
                           : item.id === "ladder"
                             ? "Background ladder"
-                            : item.category === "tool"
+                            : item.category === "Tools"
                               ? "Mining tool"
                               : item.id === "torch"
                                 ? "Light source"
@@ -356,7 +364,9 @@ export default function InventoryPanel({
                 </button>
               );
             })}
-          </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <CraftingGrid

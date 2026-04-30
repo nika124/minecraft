@@ -173,6 +173,8 @@ button {
   left: 50%;
   top: 50%;
   z-index: 5;
+  display: flex;
+  flex-direction: column;
   width: min(980px, calc(100% - 40px));
   max-height: calc(100% - 74px);
   overflow: hidden;
@@ -426,7 +428,45 @@ button {
   gap: 6px;
 }
 
-.inventory-panel.is-overlay .inventory-items-grid,
+.inventory-panel.is-overlay .inventory-main {
+  height: clamp(220px, 38vh, 336px);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 8px 8px 18px;
+  border: 2px solid #111827;
+  background: #a0a0a0;
+  box-shadow:
+    inset 2px 2px 0 #5f5f5f,
+    inset -2px -2px 0 #f5f5f5;
+  scrollbar-color: #555555 #a0a0a0;
+  scrollbar-width: thin;
+}
+
+.inventory-panel.is-overlay .inventory-main::-webkit-scrollbar {
+  width: 10px;
+}
+
+.inventory-panel.is-overlay .inventory-main::-webkit-scrollbar-track {
+  border: 2px solid #111827;
+  background: #a0a0a0;
+}
+
+.inventory-panel.is-overlay .inventory-main::-webkit-scrollbar-thumb {
+  border: 2px solid #111827;
+  background: #555555;
+}
+
+.inventory-panel.is-overlay .inventory-items-grid {
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .inventory-panel.is-overlay .inventory-slot-grid {
   min-height: 176px;
   max-height: 214px;
@@ -462,6 +502,10 @@ button {
 
 .inventory-panel.is-overlay .inventory-section-heading {
   margin: 10px 0 6px;
+}
+
+.inventory-panel.is-overlay .inventory-main > div:first-child .inventory-section-heading {
+  margin-top: 0;
 }
 
 .inventory-panel.is-overlay .inventory-section-heading span {
@@ -742,6 +786,13 @@ button {
   gap: 12px;
   align-items: start;
   min-width: 0;
+  min-height: 0;
+}
+
+.inventory-panel.is-overlay .inventory-workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .crafting-table {

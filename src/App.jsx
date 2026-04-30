@@ -36,6 +36,7 @@ import {
   getBackgroundWallForBlock,
   getForegroundIndexForItem,
   getForegroundItemId,
+  getInventoryItemForPlaceable,
 } from "./game/items";
 import {
   drawEnvironment,
@@ -117,7 +118,7 @@ export default function MinecraftInspiredWebGame() {
   );
   const skyCoverageRef = useRef(null);
   const placedBlocksRef = useRef(new Set());
-  const placedWallsRef = useRef(new Set());
+  const placedWallsRef = useRef(new Map());
   const anchoredLaddersRef = useRef(new Set());
   const inventoryRef = useRef(null);
   const inventoryCraftingGridRef = useRef(Array(4).fill(null));
@@ -146,6 +147,8 @@ export default function MinecraftInspiredWebGame() {
   const inventoryOpenRef = useRef(false);
   const craftingPanelRef = useRef("inventory");
   const carriedPlaceableRef = useRef(null);
+  const carriedPlaceableSourceRef = useRef(null);
+  const carriedPlaceableSourceSlotRef = useRef(null);
   const settingsRef = useRef(DEFAULT_GAME_SETTINGS);
 
   const [selected, setSelected] = useState(1);
@@ -239,34 +242,108 @@ export default function MinecraftInspiredWebGame() {
     };
   }, []);
 
-  const assignBlockToHotbar = useCallback(
-    (placeableIndex, slotIndex) => {
+  const returnCarriedItemToInventory = useCallback(() => {
+    if (cursorStackRef.current?.amount) {
+      addItem(
+        inventoryRef,
+        cursorStackRef.current.itemId,
+        cursorStackRef.current.amount,
+      );
+      cursorStackRef.current = null;
+      carriedPlaceableSourceRef.current = null;
+      carriedPlaceableSourceSlotRef.current = null;
+      setCarriedPlaceableIndex(null);
+      publishInventory();
+      publishCraftingState();
+      setStats((current) => ({
+        ...current,
+        message: "Returned held stack to inventory.",
+      }));
+      return;
+    }
+
+    const carriedIndex = carriedPlaceableRef.current;
+    if (carriedIndex === null) return;
+    const item = FOREGROUND_ITEMS[carriedIndex];
+
+    if (
+      carriedPlaceableSourceRef.current === "hotbar" &&
+      carriedPlaceableSourceSlotRef.current !== null
+    ) {
+      const sourceSlot = carriedPlaceableSourceSlotRef.current;
+      setBlockHotbar((current) =>
+        current.map((value, index) => (index === sourceSlot ? null : value)),
+      );
+    }
+
+    carriedPlaceableSourceRef.current = null;
+    carriedPlaceableSourceSlotRef.current = null;
+    setCarriedPlaceableIndex(null);
+    if (item) {
+      setStats((current) => ({
+        ...current,
+        message: `Returned ${item.name} to inventory assignment.`,
+      }));
+    }
+  }, [publishCraftingState, publishInventory]);
+
+  const placeOrSwapCarriedItemIntoHotbar = useCallback(
+    (slotIndex, placeableIndex = carriedPlaceableRef.current) => {
       const item = FOREGROUND_ITEMS[placeableIndex];
-      if (!item) return;
+      if (!item) return false;
       const itemId = getForegroundItemId(item);
       if (!itemId || getItemCount(inventoryRef, itemId) <= 0) {
         setStats((current) => ({
           ...current,
           message: `You do not have ${item.name}.`,
         }));
-        return;
+        return false;
       }
 
+      const replacedIndex = blockHotbarRef.current[slotIndex] ?? null;
+      const replacedItem = FOREGROUND_ITEMS[replacedIndex];
       setBlockHotbar((current) =>
         current.map((value, index) => {
           if (index === slotIndex) return placeableIndex;
-          return value === placeableIndex ? null : value;
+          return value === placeableIndex && index !== slotIndex ? null : value;
         }),
       );
       setSelected(slotIndex);
-      setCarriedPlaceableIndex(null);
+
+      carriedPlaceableSourceRef.current = null;
+      carriedPlaceableSourceSlotRef.current = null;
+      if (replacedIndex !== null && replacedIndex !== placeableIndex) {
+        setCarriedPlaceableIndex(replacedIndex);
+      } else {
+        setCarriedPlaceableIndex(null);
+      }
+
       showSelectionHint(item, "foreground");
       setStats((current) => ({
         ...current,
-        message: `Assigned ${item.name} to hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+        message:
+          replacedItem && replacedIndex !== placeableIndex
+            ? `Swapped ${item.name} into hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}. Carrying ${replacedItem.name}.`
+            : `Assigned ${item.name} to hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
       }));
+      return true;
     },
     [showSelectionHint],
+  );
+
+  const assignBlockToHotbar = useCallback(
+    (placeableIndex, slotIndex) => {
+      const item = FOREGROUND_ITEMS[placeableIndex];
+      const itemId = getForegroundItemId(item);
+      if (cursorStackRef.current?.itemId === itemId) {
+        addItem(inventoryRef, itemId, cursorStackRef.current.amount);
+        cursorStackRef.current = null;
+        publishInventory();
+        publishCraftingState();
+      }
+      return placeOrSwapCarriedItemIntoHotbar(slotIndex, placeableIndex);
+    },
+    [placeOrSwapCarriedItemIntoHotbar, publishCraftingState, publishInventory],
   );
 
   const clearHotbarSlot = useCallback((slotIndex) => {
@@ -274,6 +351,8 @@ export default function MinecraftInspiredWebGame() {
     setBlockHotbar((current) =>
       current.map((value, index) => (index === slotIndex ? null : value)),
     );
+    carriedPlaceableSourceRef.current = null;
+    carriedPlaceableSourceSlotRef.current = null;
     setCarriedPlaceableIndex(null);
     if (item) {
       setStats((current) => ({
@@ -291,6 +370,8 @@ export default function MinecraftInspiredWebGame() {
       return next;
     });
     setSelected(toSlot);
+    carriedPlaceableSourceRef.current = null;
+    carriedPlaceableSourceSlotRef.current = null;
     setCarriedPlaceableIndex(null);
     setStats((current) => ({
       ...current,
@@ -301,8 +382,30 @@ export default function MinecraftInspiredWebGame() {
   const selectBlock = useCallback(
     (slotIndex) => {
       const carriedIndex = carriedPlaceableRef.current;
+      const cursor = cursorStackRef.current;
+      if (cursor?.amount) {
+        const foregroundIndex = getForegroundIndexForItem(cursor.itemId);
+        if (foregroundIndex === null) {
+          setStats((current) => ({
+            ...current,
+            message: "That item cannot be assigned to the hotbar.",
+          }));
+          return;
+        }
+
+        addItem(inventoryRef, cursor.itemId, cursor.amount);
+        cursorStackRef.current = null;
+        isPaintingRef.current = true;
+        pickedUpDuringMouseDownRef.current = false;
+        paintedSlotIdsRef.current.add(`hotbar:${slotIndex}`);
+        publishInventory();
+        publishCraftingState();
+        placeOrSwapCarriedItemIntoHotbar(slotIndex, foregroundIndex);
+        return;
+      }
+
       if (carriedIndex !== null) {
-        assignBlockToHotbar(carriedIndex, slotIndex);
+        placeOrSwapCarriedItemIntoHotbar(slotIndex, carriedIndex);
         return;
       }
 
@@ -310,7 +413,12 @@ export default function MinecraftInspiredWebGame() {
       setSelected(slotIndex);
       if (item) showSelectionHint(item, buildModeRef.current);
     },
-    [assignBlockToHotbar, showSelectionHint],
+    [
+      placeOrSwapCarriedItemIntoHotbar,
+      publishCraftingState,
+      publishInventory,
+      showSelectionHint,
+    ],
   );
 
   const chooseInventoryBlock = useCallback(
@@ -318,7 +426,11 @@ export default function MinecraftInspiredWebGame() {
       const item = FOREGROUND_ITEMS[placeableIndex];
       if (!item) return;
       const itemId = getForegroundItemId(item);
-      if (!itemId || getItemCount(inventoryRef, itemId) <= 0) {
+      const cursorAmount =
+        cursorStackRef.current?.itemId === itemId
+          ? cursorStackRef.current.amount
+          : 0;
+      if (!itemId || getItemCount(inventoryRef, itemId) + cursorAmount <= 0) {
         setStats((current) => ({
           ...current,
           message: `You do not have ${item.name}.`,
@@ -326,6 +438,8 @@ export default function MinecraftInspiredWebGame() {
         return;
       }
 
+      carriedPlaceableSourceRef.current = "inventory";
+      carriedPlaceableSourceSlotRef.current = null;
       setCarriedPlaceableIndex(placeableIndex);
       showSelectionHint(item, "foreground");
       setStats((current) => ({
@@ -697,7 +811,7 @@ export default function MinecraftInspiredWebGame() {
     );
     skyCoverageRef.current = createSkyCoverage(next.world);
     placedBlocksRef.current = new Set();
-    placedWallsRef.current = new Set();
+    placedWallsRef.current = new Map();
     anchoredLaddersRef.current = new Set();
     inventoryRef.current = createInventory(STARTING_INVENTORY);
     blockHotbarRef.current = [...DEFAULT_BLOCK_HOTBAR];
@@ -732,6 +846,7 @@ export default function MinecraftInspiredWebGame() {
     const centerX = Math.floor((player.x + player.w / 2) / TILE);
     const centerY = Math.floor((player.y + player.h / 2) / TILE);
     const item = FOREGROUND_ITEMS[blockHotbarRef.current[selectedRef.current]];
+    const inventoryItem = getInventoryItemForPlaceable(item);
     const itemId = getForegroundItemId(item);
     const wall = getBackgroundWallForBlock(item);
     const available = getItemCount(inventoryRef, itemId);
@@ -767,7 +882,10 @@ export default function MinecraftInspiredWebGame() {
         if (count >= available) break;
         if (wallsRef.current[y][x] !== wall.id) {
           wallsRef.current[y][x] = wall.id;
-          placedWallsRef.current.add(`${x},${y}`);
+          placedWallsRef.current.set(
+            `${x},${y}`,
+            inventoryItem?.foregroundBlockId ?? item.id,
+          );
           count++;
         }
       }
@@ -1007,7 +1125,15 @@ export default function MinecraftInspiredWebGame() {
         for (let x = startX; x < endX; x++) {
           const wall = WALL_BY_ID[walls[y][x]];
           if (wall?.id) {
-            drawWall(ctx, wall, x * TILE - cam.x, y * TILE - cam.y, TILE, time);
+            drawWall(
+              ctx,
+              wall,
+              x * TILE - cam.x,
+              y * TILE - cam.y,
+              TILE,
+              time,
+              placedWallsRef.current.get(`${x},${y}`) ?? null,
+            );
           }
         }
       }
@@ -1257,7 +1383,6 @@ export default function MinecraftInspiredWebGame() {
               <div className="inventory-backdrop" aria-hidden="true" />
               {craftingPanel === "workbench" ? (
                 <WorkbenchPanel
-                  buildMode={buildMode}
                   selected={selected}
                   blockHotbar={blockHotbar}
                   inventory={inventory}
@@ -1276,14 +1401,12 @@ export default function MinecraftInspiredWebGame() {
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}
                   onSwapHotbarSlots={swapHotbarSlots}
-                  onSetForegroundMode={() => setBuildMode("foreground")}
-                  onSetBackgroundMode={() => setBuildMode("background")}
+                  onReturnCarriedItemToInventory={returnCarriedItemToInventory}
                   carriedPlaceableIndex={carriedPlaceableIndex}
                   onClose={handleCloseInventory}
                 />
               ) : (
                 <InventoryPanel
-                  buildMode={buildMode}
                   selected={selected}
                   blockHotbar={blockHotbar}
                   inventory={inventory}
@@ -1302,8 +1425,7 @@ export default function MinecraftInspiredWebGame() {
                   onAssignInventoryBlock={assignBlockToHotbar}
                   onClearHotbarSlot={clearHotbarSlot}
                   onSwapHotbarSlots={swapHotbarSlots}
-                  onSetForegroundMode={() => setBuildMode("foreground")}
-                  onSetBackgroundMode={() => setBuildMode("background")}
+                  onReturnCarriedItemToInventory={returnCarriedItemToInventory}
                   carriedPlaceableIndex={carriedPlaceableIndex}
                   onClose={handleCloseInventory}
                 />
