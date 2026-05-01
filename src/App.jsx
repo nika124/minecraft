@@ -18,12 +18,7 @@ import {
   WORLD_H,
   WORLD_W,
 } from "./game/constants";
-import {
-  createInventory,
-  getItemCount,
-  removeItem,
-  STARTING_INVENTORY,
-} from "./game/inventory";
+import { getItemCount, removeItem } from "./game/inventory";
 import {
   getBackgroundWallForBlock,
   getForegroundItemId,
@@ -161,10 +156,8 @@ export default function MinecraftInspiredWebGame() {
 
   const {
     selected,
-    setSelected,
     selectedRef,
     blockHotbar,
-    setBlockHotbar,
     blockHotbarRef,
     inventory,
     inventoryRef,
@@ -175,11 +168,8 @@ export default function MinecraftInspiredWebGame() {
     setCraftingPanel,
     craftingPanelRef,
     inventoryCraftingGrid,
-    inventoryCraftingGridRef,
     workbenchCraftingGrid,
-    workbenchCraftingGridRef,
     cursorStack,
-    cursorStackRef,
     carriedPlaceableIndex,
     setCarriedPlaceableIndex,
     carriedPlaceableRef,
@@ -187,7 +177,7 @@ export default function MinecraftInspiredWebGame() {
     isPaintingRef,
     pickedUpDuringMouseDownRef,
     publishInventory,
-    publishCraftingState,
+    resetInventoryController,
     closeInventoryPanel,
     openWorkbenchPanel,
     setInventoryOpenFromInput,
@@ -206,9 +196,6 @@ export default function MinecraftInspiredWebGame() {
     handleCraftingOutputMouseDown,
     inventoryCraftingOutput,
     workbenchCraftingOutput,
-    createDefaultBlockHotbar,
-    createInventoryCraftingGrid,
-    createWorkbenchCraftingGrid,
   } = inventoryController;
 
   useEffect(() => {
@@ -288,14 +275,8 @@ export default function MinecraftInspiredWebGame() {
     placedBlocksRef.current = new Set();
     placedWallsRef.current = new Map();
     anchoredLaddersRef.current = new Set();
-    inventoryRef.current = createInventory(STARTING_INVENTORY);
-    blockHotbarRef.current = createDefaultBlockHotbar();
-    inventoryCraftingGridRef.current = createInventoryCraftingGrid();
-    workbenchCraftingGridRef.current = createWorkbenchCraftingGrid();
-    cursorStackRef.current = null;
+    resetInventoryController();
     settingsRef.current = createDefaultGameSettings();
-    publishInventory();
-    publishCraftingState();
     particlesRef.current = [];
     droppedItemsRef.current = [];
     miningRef.current = {
@@ -308,8 +289,6 @@ export default function MinecraftInspiredWebGame() {
     rainRef.current = makeRainDrops();
     playerRef.current = createPlayer();
     cameraRef.current = { x: 0, y: 0 };
-    setBlockHotbar(createDefaultBlockHotbar());
-    setSelected(0);
     setBuildMode("foreground");
     setGameSettings(createDefaultGameSettings());
     setStats(createStats("New world generated."));

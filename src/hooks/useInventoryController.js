@@ -99,6 +99,29 @@ export default function useInventoryController({
     );
   }, []);
 
+  const resetInventoryController = useCallback(() => {
+    inventoryRef.current = createInventory();
+    blockHotbarRef.current = createDefaultBlockHotbar();
+    inventoryCraftingGridRef.current = createInventoryCraftingGrid();
+    workbenchCraftingGridRef.current = createWorkbenchCraftingGrid();
+    cursorStackRef.current = null;
+    carriedPlaceableSourceRef.current = null;
+    carriedPlaceableSourceSlotRef.current = null;
+    paintedSlotIdsRef.current = new Set();
+    isPaintingRef.current = false;
+    pickedUpDuringMouseDownRef.current = false;
+
+    setInventory({ ...inventoryRef.current });
+    setBlockHotbar(createDefaultBlockHotbar());
+    setSelected(0);
+    setInventoryCraftingGrid([...inventoryCraftingGridRef.current]);
+    setWorkbenchCraftingGrid([...workbenchCraftingGridRef.current]);
+    setCursorStack(null);
+    setCarriedPlaceableIndex(null);
+    setCraftingPanel("inventory");
+    setIsInventoryOpen(false);
+  }, []);
+
   const returnCraftingStacksToInventory = useCallback(() => {
     for (const slot of inventoryCraftingGridRef.current) {
       if (slot?.amount) addItem(inventoryRef, slot.itemId, slot.amount);
@@ -663,6 +686,7 @@ export default function useInventoryController({
     carriedPlaceableSourceSlotRef,
     publishInventory,
     publishCraftingState,
+    resetInventoryController,
     returnCraftingStacksToInventory,
     setInventoryOpenFromInput,
     closeInventoryPanel,
