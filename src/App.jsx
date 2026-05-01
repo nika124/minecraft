@@ -183,6 +183,18 @@ export default function MinecraftInspiredWebGame() {
     };
   }, []);
 
+  const publishInventory = useCallback(() => {
+    setInventory({ ...inventoryRef.current });
+  }, []);
+
+  const publishCraftingState = useCallback(() => {
+    setInventoryCraftingGrid([...inventoryCraftingGridRef.current]);
+    setWorkbenchCraftingGrid([...workbenchCraftingGridRef.current]);
+    setCursorStack(
+      cursorStackRef.current ? { ...cursorStackRef.current } : null,
+    );
+  }, []);
+
   const returnCarriedItemToInventory = useCallback(() => {
     if (cursorStackRef.current?.amount) {
       addItem(
