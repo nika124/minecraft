@@ -17,15 +17,20 @@ import {
   placeIntoCraftingSlot,
   placeIntoItemCountSlot,
 } from "../game/slotInteractions";
+import {
+  HOTBAR_SLOT_COUNT,
+  getHotbarSlotLabel,
+} from "../game/ui/hotbarLayout";
 
-export const createDefaultBlockHotbar = () => Array(10).fill(null);
+export const createDefaultBlockHotbar = () =>
+  Array(HOTBAR_SLOT_COUNT).fill(null);
 export const createInventoryCraftingGrid = () => Array(4).fill(null);
 export const createWorkbenchCraftingGrid = () => Array(9).fill(null);
 
 export default function useInventoryController({
   mouseRef,
-  setStats,
-  showSelectionHint,
+  setStats = () => {},
+  showSelectionHint = () => {},
 } = {}) {
   const inventoryRef = useRef(null);
   const inventoryCraftingGridRef = useRef(createInventoryCraftingGrid());
@@ -229,8 +234,8 @@ export default function useInventoryController({
         ...current,
         message:
           replacedItem && replacedIndex !== placeableIndex
-            ? `Swapped ${item.name} into hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}. Carrying ${replacedItem.name}.`
-            : `Assigned ${item.name} to hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+            ? `Swapped ${item.name} into hotbar slot ${getHotbarSlotLabel(slotIndex)}. Carrying ${replacedItem.name}.`
+            : `Assigned ${item.name} to hotbar slot ${getHotbarSlotLabel(slotIndex)}.`,
       }));
       return true;
     },
@@ -264,7 +269,7 @@ export default function useInventoryController({
       if (item) {
         setStats((current) => ({
           ...current,
-          message: `Removed ${item.name} from hotbar slot ${slotIndex === 9 ? "0" : slotIndex + 1}.`,
+          message: `Removed ${item.name} from hotbar slot ${getHotbarSlotLabel(slotIndex)}.`,
         }));
       }
     },
@@ -285,7 +290,7 @@ export default function useInventoryController({
       setCarriedPlaceableIndex(null);
       setStats((current) => ({
         ...current,
-        message: `Swapped hotbar slots ${fromSlot === 9 ? "0" : fromSlot + 1} and ${toSlot === 9 ? "0" : toSlot + 1}.`,
+        message: `Swapped hotbar slots ${getHotbarSlotLabel(fromSlot)} and ${getHotbarSlotLabel(toSlot)}.`,
       }));
     },
     [setStats],
