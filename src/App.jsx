@@ -170,9 +170,6 @@ export default function MinecraftInspiredWebGame() {
     carriedPlaceableIndex,
     setCarriedPlaceableIndex,
     carriedPlaceableRef,
-    paintedSlotIdsRef,
-    isPaintingRef,
-    pickedUpDuringMouseDownRef,
     publishInventory,
     resetInventoryController,
     closeInventoryPanel,
@@ -204,16 +201,6 @@ export default function MinecraftInspiredWebGame() {
     };
   }, [isInventoryOpen]);
 
-  useEffect(() => {
-    const stopPainting = () => {
-      isPaintingRef.current = false;
-      paintedSlotIdsRef.current = new Set();
-      pickedUpDuringMouseDownRef.current = false;
-    };
-
-    window.addEventListener("mouseup", stopPainting);
-    return () => window.removeEventListener("mouseup", stopPainting);
-  }, [isPaintingRef, paintedSlotIdsRef, pickedUpDuringMouseDownRef]);
   const handleCloseInventory = useCallback(() => {
     closeInventoryPanel();
   }, [closeInventoryPanel]);

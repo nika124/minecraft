@@ -87,6 +87,17 @@ export default function useInventoryController({
     carriedPlaceableRef.current = carriedPlaceableIndex;
   }, [carriedPlaceableIndex]);
 
+  useEffect(() => {
+    const stopPainting = () => {
+      isPaintingRef.current = false;
+      paintedSlotIdsRef.current = new Set();
+      pickedUpDuringMouseDownRef.current = false;
+    };
+
+    window.addEventListener("mouseup", stopPainting);
+    return () => window.removeEventListener("mouseup", stopPainting);
+  }, []);
+
   const publishInventory = useCallback(() => {
     setInventory({ ...inventoryRef.current });
   }, []);
